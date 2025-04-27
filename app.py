@@ -183,7 +183,7 @@ def index():
             if min_opportunity:
                 filtered = filtered[filtered['Opportunity_Score'] >= float(min_opportunity)]
 
-            parts = filtered[['Part', 'Start Year', 'End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorder',
+            parts = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders',
                               'Parts Sold All', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
             parts = parts.sort_values(by='Opportunity_Score', ascending=False).head(50)
             last_search_result = parts
