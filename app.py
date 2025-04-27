@@ -3,7 +3,7 @@ import pandas as pd
 from io import BytesIO
 
 # Load your dataset
-file_path = '/mnt/data/WebFleet.csv'
+file_path = 'WebFleet.csv'
 df = pd.read_csv(file_path)
 
 # Flask App
