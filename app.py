@@ -98,7 +98,7 @@ html_template = """
       <h2 class="mt-5">Top Parts</h2>
       <table class="table table-striped mt-3">
         <thead><tr>
-          <th>Part</th><th>Start Year</th><th>End Year</th><th>Description</th><th>Price</th><th>Parts in Stock</th><th>Backorder</th><th>Parts Sold</th><th>Potential Profit</th><th>Sales Speed</th><th>Opportunity Score</th>
+          <th>Part</th><th>Start Year</th><th>End Year</th><th>Description</th><th>Price</th><th>Parts in Stock</th><th>Backorders</th><th>Parts Sold</th><th>Potential Profit</th><th>Sales Speed</th><th>Opportunity Score</th>
         </tr></thead>
         <tbody>
         {% for row in parts %}
