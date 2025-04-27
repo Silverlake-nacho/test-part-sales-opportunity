@@ -89,11 +89,11 @@ html_template = """
         color: #5c9c13;
       }
       .btn-primary, .btn-success {
-        background-color: #f0f0f0;
+        background-color: #86d400;
         border: none;
       }
       .btn-primary:hover, .btn-success:hover {
-        background-color: #0097a7;
+        background-color: #5c9c13;
       }
       .form-control {
         background-color: #ebf7d7;
@@ -293,7 +293,7 @@ html_template = """
         border: none;
       }
       .btn-primary:hover, .btn-success:hover {
-        background-color: #0097a7;
+        background-color: #5c9c13;
       }
       .form-control {
         background-color: #ebf7d7;
