@@ -33,7 +33,7 @@ login_template = """
     body {
       background: url("{{ url_for('static', filename='background.jpg') }}") no-repeat center center fixed;
       background-size: cover;
-      color: black;
+      color: white;
       font-family: 'Montserrat', sans-serif;
     }
     .form-control {
@@ -96,12 +96,12 @@ html_template = """
         background-color: #0097a7;
       }
       .form-control {
-        background-color: #1a1a1a;
+        background-color: #ebf7d7;
         color: #f0f0f0;
         border: 1px solid #333;
       }
       .form-control:focus {
-        border-color: #00bcd4;
+        border-color: #78c202;
         box-shadow: 0 0 5px #00bcd4;
         background-color: #1a1a1a;
         color: #fff;
@@ -111,12 +111,12 @@ html_template = """
         background-color: #111;
       }
       th, td {
-        border-bottom: 1px solid #00bcd4;
+        border-bottom: 1px solid #78c202;
       }
       #model-suggestions {
-        background-color: #1a1a1a;
+        background-color: #f0f0f0;
         color: #f0f0f0;
-        border: 1px solid #00bcd4;
+        border: 1px solid #78c202;
       }
       .logo {
         text-align: center;
