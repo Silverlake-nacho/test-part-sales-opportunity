@@ -59,6 +59,50 @@ html_template = """
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Part Sales Opportunity Finder</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript">
+      $(document).ready(function() {
+        // When user types in the Model input field
+        $('input[name="model"]').on('input', function() {
+          var query = $(this).val().trim();
+
+          // Send an AJAX request to Flask to get model predictions
+          if (query.length > 0) {
+            $.ajax({
+              url: '/autocomplete_model',
+              method: 'GET',
+              data: { 'query': query },
+              success: function(response) {
+                var suggestions = response.models;
+                var suggestionList = $('#model-suggestions');
+                suggestionList.empty();
+                
+                // Display the suggestions
+                suggestions.forEach(function(model) {
+                  suggestionList.append('<li class="list-group-item">' + model + '</li>');
+                });
+                suggestionList.show();
+              }
+            });
+          } else {
+            $('#model-suggestions').hide();
+          }
+        });
+
+        // Fill the input with the selected model from suggestions
+        $('#model-suggestions').on('click', 'li', function() {
+          $('input[name="model"]').val($(this).text());
+          $('#model-suggestions').hide();
+        });
+
+        // Hide suggestions when user clicks outside
+        $(document).click(function(event) {
+          if (!$(event.target).closest('#model-suggestions').length && !$(event.target).closest('input[name="model"]').length) {
+            $('#model-suggestions').hide();
+          }
+        });
+      });
+    </script>
   </head>
   <body class="p-4">
     <div class="container">
@@ -68,6 +112,7 @@ html_template = """
           <div class="col-md-6 mb-3">
             <label class="form-label">Model</label>
             <input type="text" name="model" class="form-control" required>
+            <ul id="model-suggestions" class="list-group" style="display: none; position: absolute; z-index: 1000; border: 1px solid #ddd; max-height: 150px; overflow-y: auto;"></ul>
           </div>
           <div class="col-md-2 mb-3">
             <label class="form-label">Year</label>
@@ -152,6 +197,17 @@ def require_login():
     if request.endpoint not in allowed_routes and not session.get('logged_in'):
         return redirect(url_for('login'))
 
+# Autocomplete model route
+@app.route('/autocomplete_model', methods=['GET'])
+def autocomplete_model():
+    query = request.args.get('query', '')
+    if query:
+        # Filter the models that contain the query string
+        filtered_models = df['Model'].dropna().unique()
+        matches = [model for model in filtered_models if query.lower() in model.lower()]
+        return {'models': matches}
+    return {'models': []}
+
 # Main route
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -165,8 +221,8 @@ def index():
         min_opportunity = request.form.get('min_opportunity')
 
         filtered = df[
-            (df['Model'].str.contains(model, case=False, na=False)) & 
-            (df['IC Start Year'] <= year) & 
+            (df['Model'].str.contains(model, case=False, na=False)) &
+            (df['IC Start Year'] <= year) &
             (df['IC End Year'] >= year)
         ]
 
@@ -199,7 +255,6 @@ def download():
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             last_search_result.to_excel(writer, index=False, sheet_name='Parts')
-
         output.seek(0)
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
