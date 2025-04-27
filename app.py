@@ -62,7 +62,7 @@ html_template = """
   </head>
   <body class="p-4">
     <div class="container">
-      <h1 class="mb-4">Part Sales Opportunity Finder</h1>
+      <h1 class="mb-4">Silverlake Part Sales Opportunity Finder</h1>
       <form method="post">
         <div class="row">
           <div class="col-md-6 mb-3">
