@@ -109,7 +109,7 @@ html_template = """
             <td>{{ row['IC Description'] }}</td>
             <td>£{{ "{:.2f}".format(row['B Price']) }}</td>
             <td>{{ row['Parts in Stock'] }}</td>
-             <td>{{ row['Backorder'] }}</td>
+             <td>{{ row['Backorders'] }}</td>
             <td>{{ row['Parts Sold All'] }}</td>
             <td>£{{ "{:.2f}".format(row['Potential_Profit']) }}</td>
             <td>{{ "{:.2f}".format(row['Sales_Speed']) }}</td>
