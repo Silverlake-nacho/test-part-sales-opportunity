@@ -12,7 +12,7 @@ app.secret_key = 'your_super_secret_key_here'  # Needed for session management!
 
 # Define login credentials
 USERS = {
-    'admin': 'password123',
+    'admin': 'Silverlake1!',
     'nacho': 'Silverlake1!'
 }
 
