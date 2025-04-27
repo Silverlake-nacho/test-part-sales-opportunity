@@ -102,7 +102,7 @@ html_template = """
         </tr></thead>
         <tbody>
         {% for row in parts %}
-          <tr {% if row['Backorders'] > 0 %} style="background-color: #D3F9D8;" {% endif %}>
+          <tr {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>
             <td>{{ row['Part'] }}</td>
             <td>{{ row['IC Start Year'] }}</td>
             <td>{{ row['IC End Year'] }}</td>
@@ -185,7 +185,7 @@ def index():
 
             parts = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders',
                               'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
-            parts = parts.sort_values(by='Opportunity_Score', ascending=False).head(50)
+            parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
             last_search_result = parts
             parts = parts.to_dict('records')
 
