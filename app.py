@@ -83,7 +83,7 @@ html_template = """
         background: url("{{ url_for('static', filename='background.jpg') }}") no-repeat center center fixed;
         background-size: cover;
         font-family: 'Montserrat', sans-serif;
-        color: black;  /* Set text color to black */
+        color: white;  /* Set text color to black */
       }
       h1, h2, label {
         color: #5c9c13;
@@ -102,8 +102,8 @@ html_template = """
       }
       .form-control:focus {
         border-color: #78c202;
-        box-shadow: 0 0 5px #00bcd4;
-        background-color: #1a1a1a;
+        box-shadow: 0 0 5px #86d400;
+        background-color: #5c9c13;
         color: #fff;
       }
       table {
