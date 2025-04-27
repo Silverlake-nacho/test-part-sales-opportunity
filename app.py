@@ -102,14 +102,14 @@ html_template = """
         </tr></thead>
         <tbody>
         {% for row in parts %}
-          <tr>
+          <tr {% if row['Backorders'] > 0 %} style="background-color: #D3F9D8;" {% endif %}>
             <td>{{ row['Part'] }}</td>
             <td>{{ row['IC Start Year'] }}</td>
             <td>{{ row['IC End Year'] }}</td>
             <td>{{ row['IC Description'] }}</td>
             <td>£{{ "{:.2f}".format(row['B Price']) }}</td>
             <td>{{ row['Parts in Stock'] }}</td>
-             <td>{{ row['Backorders'] }}</td>
+            <td>{{ row['Backorders'] }}</td>
             <td>{{ row['Parts Sold All'] }}</td>
             <td>{{ row['Not Found 180 days'] }}</td>
             <td>£{{ "{:.2f}".format(row['Potential_Profit']) }}</td>
@@ -120,7 +120,6 @@ html_template = """
         </tbody>
       </table>
       {% endif %}
-
     </div>
   </body>
 </html>
@@ -166,8 +165,8 @@ def index():
         min_opportunity = request.form.get('min_opportunity')
 
         filtered = df[
-            (df['Model'].str.contains(model, case=False, na=False)) &
-            (df['IC Start Year'] <= year) &
+            (df['Model'].str.contains(model, case=False, na=False)) & 
+            (df['IC Start Year'] <= year) & 
             (df['IC End Year'] >= year)
         ]
 
@@ -200,6 +199,7 @@ def download():
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             last_search_result.to_excel(writer, index=False, sheet_name='Parts')
+
         output.seek(0)
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
