@@ -102,19 +102,19 @@ html_template = """
         </tr></thead>
         <tbody>
         {% for row in parts %}
-          <tr {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>
-            <td>{{ row['Part'] }}</td>
-            <td>{{ row['IC Start Year'] }}</td>
-            <td>{{ row['IC End Year'] }}</td>
-            <td>{{ row['IC Description'] }}</td>
-            <td>£{{ "{:.2f}".format(row['B Price']) }}</td>
-            <td>{{ row['Parts in Stock'] }}</td>
-            <td>{{ row['Backorders'] }}</td>
-            <td>{{ row['Parts Sold All'] }}</td>
-            <td>{{ row['Not Found 180 days'] }}</td>
-            <td>£{{ "{:.2f}".format(row['Potential_Profit']) }}</td>
-            <td>{{ "{:.2f}".format(row['Sales_Speed']) }}</td>
-            <td>£{{ "{:.2f}".format(row['Opportunity_Score']) }}</td>
+          <tr>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['Part'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['IC Start Year'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['IC End Year'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['IC Description'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>£{{ "{:.2f}".format(row['B Price']) }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['Parts in Stock'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['Backorders'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['Parts Sold All'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['Not Found 180 days'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>£{{ "{:.2f}".format(row['Potential_Profit']) }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ "{:.2f}".format(row['Sales_Speed']) }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>£{{ "{:.2f}".format(row['Opportunity_Score']) }}</td>
           </tr>
         {% endfor %}
         </tbody>
@@ -185,7 +185,7 @@ def index():
 
             parts = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders',
                               'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
-            parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
+            parts = parts.sort_values(by='Opportunity_Score', ascending=False).head(50)
             last_search_result = parts
             parts = parts.to_dict('records')
 
