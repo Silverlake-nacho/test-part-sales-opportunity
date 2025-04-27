@@ -28,12 +28,13 @@ login_template = """
   <meta charset="utf-8">
   <title>Login</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet"> <!-- Montserrat font -->
   <style>
     body {
-      background: linear-gradient(to bottom, #000000, #0a0a23);
-      color: #f0f0f0;
-      font-family: 'Roboto', sans-serif;
+      background: url("{{ url_for('static', filename='background.jpg') }}") no-repeat center center fixed;
+      background-size: cover;
+      color: black;
+      font-family: 'Montserrat', sans-serif;
     }
     .form-control {
       background-color: #1a1a1a;
@@ -76,12 +77,13 @@ html_template = """
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Part Sales Opportunity Finder</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet"> <!-- Montserrat font -->
     <style>
       body {
-        background: linear-gradient(to bottom, #000000, #0a0a23);
-        color: #f0f0f0;
-        font-family: 'Roboto', sans-serif;
+        background: url("{{ url_for('static', filename='background.jpg') }}") no-repeat center center fixed;
+        background-size: cover;
+        font-family: 'Montserrat', sans-serif;
+        color: black;  /* Set text color to black */
       }
       h1, h2, label {
         color: #00bcd4;
