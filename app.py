@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template_string, send_file, redirect, url_for, session
 import pandas as pd
 from io import BytesIO
+import os
 
 # Load your dataset
 file_path = 'WebFleet.csv'
@@ -18,6 +19,7 @@ USERS = {
 
 # Global variable to hold last search result
 last_search_result = None
+last_search_inputs = None
 
 # Login page template
 login_template = """
@@ -62,11 +64,8 @@ html_template = """
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script type="text/javascript">
       $(document).ready(function() {
-        // When user types in the Model input field
         $('input[name="model"]').on('input', function() {
           var query = $(this).val().trim();
-
-          // Send an AJAX request to Flask to get model predictions
           if (query.length > 0) {
             $.ajax({
               url: '/autocomplete_model',
@@ -76,8 +75,6 @@ html_template = """
                 var suggestions = response.models;
                 var suggestionList = $('#model-suggestions');
                 suggestionList.empty();
-                
-                // Display the suggestions
                 suggestions.forEach(function(model) {
                   suggestionList.append('<li class="list-group-item">' + model + '</li>');
                 });
@@ -89,13 +86,11 @@ html_template = """
           }
         });
 
-        // Fill the input with the selected model from suggestions
         $('#model-suggestions').on('click', 'li', function() {
           $('input[name="model"]').val($(this).text());
           $('#model-suggestions').hide();
         });
 
-        // Hide suggestions when user clicks outside
         $(document).click(function(event) {
           if (!$(event.target).closest('#model-suggestions').length && !$(event.target).closest('input[name="model"]').length) {
             $('#model-suggestions').hide();
@@ -106,7 +101,11 @@ html_template = """
   </head>
   <body class="p-4">
     <div class="container">
-      <h1 class="mb-4">Silverlake Part Sales Opportunity Finder</h1>
+      <div class="text-center mb-4">
+        <img src="{{ url_for('static', filename='logo-slg-strip.svg') }}" alt="Silverlake Logo" class="img-fluid" style="max-height: 100px;">
+        <h1 class="mt-3">Silverlake Part Sales Opportunity Finder</h1>
+      </div>
+
       <form method="post">
         <div class="row">
           <div class="col-md-6 mb-3">
@@ -140,7 +139,7 @@ html_template = """
       </form>
 
       {% if parts %}
-      <h2 class="mt-5">Top Parts</h2>
+      <h2 class="mt-5">Top Parts for "{{ search_inputs.model }}" (Year: {{ search_inputs.year }}, Engine: {{ search_inputs.engine_code or 'Any' }})</h2>
       <table class="table table-striped mt-3">
         <thead><tr>
           <th>Part</th><th>Start Year</th><th>End Year</th><th>Description</th><th>Price</th><th>Parts in Stock</th><th>Backorders</th><th>Parts Sold</th><th>Not Found 180 days</th><th>Potential Profit</th><th>Sales Speed</th><th>Opportunity Score</th>
@@ -193,7 +192,7 @@ def logout():
 # Protect all pages
 @app.before_request
 def require_login():
-    allowed_routes = ['login', 'static']
+    allowed_routes = ['login', 'static', 'autocomplete_model']
     if request.endpoint not in allowed_routes and not session.get('logged_in'):
         return redirect(url_for('login'))
 
@@ -202,7 +201,6 @@ def require_login():
 def autocomplete_model():
     query = request.args.get('query', '')
     if query:
-        # Filter the models that contain the query string
         filtered_models = df['Model'].dropna().unique()
         matches = [model for model in filtered_models if query.lower() in model.lower()]
         return {'models': matches}
@@ -211,8 +209,9 @@ def autocomplete_model():
 # Main route
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    global last_search_result
+    global last_search_result, last_search_inputs
     parts = None
+    search_inputs = None
     if request.method == 'POST':
         model = request.form['model']
         year = int(request.form['year'])
@@ -245,7 +244,14 @@ def index():
             last_search_result = parts
             parts = parts.to_dict('records')
 
-    return render_template_string(html_template, parts=parts)
+            search_inputs = {
+                'model': model,
+                'year': year,
+                'engine_code': engine_code
+            }
+            last_search_inputs = search_inputs
+
+    return render_template_string(html_template, parts=parts, search_inputs=last_search_inputs)
 
 # Download route
 @app.route('/download')
