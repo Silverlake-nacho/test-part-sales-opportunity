@@ -98,15 +98,18 @@ html_template = """
       <h2 class="mt-5">Top Parts</h2>
       <table class="table table-striped mt-3">
         <thead><tr>
-          <th>Part</th><th>Description</th><th>Price</th><th>Parts in Stock</th><th>Parts Sold</th><th>Potential Profit</th><th>Sales Speed</th><th>Opportunity Score</th>
+          <th>Part</th><th>Start Year</th><th>End Year</th><th>Description</th><th>Price</th><th>Parts in Stock</th><th>Backorder</th><th>Parts Sold</th><th>Potential Profit</th><th>Sales Speed</th><th>Opportunity Score</th>
         </tr></thead>
         <tbody>
         {% for row in parts %}
           <tr>
             <td>{{ row['Part'] }}</td>
+            <td>{{ row['IC Start Year'] }}</td>
+            <td>{{ row['IC End Year'] }}</td>
             <td>{{ row['IC Description'] }}</td>
             <td>£{{ "{:.2f}".format(row['B Price']) }}</td>
             <td>{{ row['Parts in Stock'] }}</td>
+             <td>{{ row['Backorder'] }}</td>
             <td>{{ row['Parts Sold All'] }}</td>
             <td>£{{ "{:.2f}".format(row['Potential_Profit']) }}</td>
             <td>{{ "{:.2f}".format(row['Sales_Speed']) }}</td>
