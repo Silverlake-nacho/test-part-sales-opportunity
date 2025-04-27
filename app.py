@@ -98,7 +98,7 @@ html_template = """
       <h2 class="mt-5">Top Parts</h2>
       <table class="table table-striped mt-3">
         <thead><tr>
-          <th>Part</th><th>Start Year</th><th>End Year</th><th>Description</th><th>Price</th><th>Parts in Stock</th><th>Backorders</th><th>Parts Sold</th><th>Potential Profit</th><th>Sales Speed</th><th>Opportunity Score</th>
+          <th>Part</th><th>Start Year</th><th>End Year</th><th>Description</th><th>Price</th><th>Parts in Stock</th><th>Backorders</th><th>Parts Sold</th><th>Not Found 180 days</th><th>Potential Profit</th><th>Sales Speed</th><th>Opportunity Score</th>
         </tr></thead>
         <tbody>
         {% for row in parts %}
@@ -111,6 +111,7 @@ html_template = """
             <td>{{ row['Parts in Stock'] }}</td>
              <td>{{ row['Backorders'] }}</td>
             <td>{{ row['Parts Sold All'] }}</td>
+            <td>{{ row['Not Found 180 days'] }}</td>
             <td>£{{ "{:.2f}".format(row['Potential_Profit']) }}</td>
             <td>{{ "{:.2f}".format(row['Sales_Speed']) }}</td>
             <td>£{{ "{:.2f}".format(row['Opportunity_Score']) }}</td>
@@ -184,7 +185,7 @@ def index():
                 filtered = filtered[filtered['Opportunity_Score'] >= float(min_opportunity)]
 
             parts = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders',
-                              'Parts Sold All', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
+                              'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
             parts = parts.sort_values(by='Opportunity_Score', ascending=False).head(50)
             last_search_result = parts
             parts = parts.to_dict('records')
