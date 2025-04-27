@@ -298,7 +298,7 @@ html_template = """
       .form-control {
         background-color: #ebf7d7;
         color: #f0f0f0;
-        border: 1px solid #333;
+        
       }
       .form-control:focus {
         border-color: #78c202;
