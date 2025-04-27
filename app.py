@@ -37,11 +37,11 @@ login_template = """
       font-family: 'Montserrat', sans-serif;
     }
     .form-control {
-      background-color: #1a1a1a;
+      background-color: #f4faf2;
       color: #f0f0f0;
     }
     .btn-primary {
-      background-color: #00bcd4;
+      background-color: #5c9c13;
       border: none;
     }
   </style>
@@ -86,10 +86,10 @@ html_template = """
         color: black;  /* Set text color to black */
       }
       h1, h2, label {
-        color: #00bcd4;
+        color: #5c9c13;
       }
       .btn-primary, .btn-success {
-        background-color: #00bcd4;
+        background-color: #f0f0f0;
         border: none;
       }
       .btn-primary:hover, .btn-success:hover {
