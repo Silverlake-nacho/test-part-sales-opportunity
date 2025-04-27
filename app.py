@@ -1,7 +1,6 @@
 from flask import Flask, request, render_template_string, send_file, redirect, url_for, session
 import pandas as pd
 from io import BytesIO
-import os
 
 # Load your dataset
 file_path = 'WebFleet.csv'
@@ -17,9 +16,9 @@ USERS = {
     'nacho': 'Silverlake1!'
 }
 
-# Global variable to hold last search result
+# Global variable to hold last search result and search input
 last_search_result = None
-last_search_inputs = None
+search_details = None
 
 # Login page template
 login_template = """
@@ -29,10 +28,26 @@ login_template = """
   <meta charset="utf-8">
   <title>Login</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(to bottom, #000000, #0a0a23);
+      color: #f0f0f0;
+      font-family: 'Roboto', sans-serif;
+    }
+    .form-control {
+      background-color: #1a1a1a;
+      color: #f0f0f0;
+    }
+    .btn-primary {
+      background-color: #00bcd4;
+      border: none;
+    }
+  </style>
 </head>
 <body class="p-4">
 <div class="container">
-  <h1 class="mb-4">Login</h1>
+  <h1 class="mb-4 text-center">Login</h1>
   <form method="post">
     <div class="mb-3">
       <label class="form-label">Username</label>
@@ -61,6 +76,56 @@ html_template = """
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Part Sales Opportunity Finder</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+    <style>
+      body {
+        background: linear-gradient(to bottom, #000000, #0a0a23);
+        color: #f0f0f0;
+        font-family: 'Roboto', sans-serif;
+      }
+      h1, h2, label {
+        color: #00bcd4;
+      }
+      .btn-primary, .btn-success {
+        background-color: #00bcd4;
+        border: none;
+      }
+      .btn-primary:hover, .btn-success:hover {
+        background-color: #0097a7;
+      }
+      .form-control {
+        background-color: #1a1a1a;
+        color: #f0f0f0;
+        border: 1px solid #333;
+      }
+      .form-control:focus {
+        border-color: #00bcd4;
+        box-shadow: 0 0 5px #00bcd4;
+        background-color: #1a1a1a;
+        color: #fff;
+      }
+      table {
+        color: #f0f0f0;
+        background-color: #111;
+      }
+      th, td {
+        border-bottom: 1px solid #00bcd4;
+      }
+      #model-suggestions {
+        background-color: #1a1a1a;
+        color: #f0f0f0;
+        border: 1px solid #00bcd4;
+      }
+      .logo {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .logo img {
+        width: 300px;
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script type="text/javascript">
       $(document).ready(function() {
@@ -101,11 +166,10 @@ html_template = """
   </head>
   <body class="p-4">
     <div class="container">
-      <div class="text-center mb-4">
-        <img src="{{ url_for('static', filename='logo-slg-strip.svg') }}" alt="Silverlake Logo" class="img-fluid" style="max-height: 100px;">
-        <h1 class="mt-3">Silverlake Part Sales Opportunity Finder</h1>
+      <div class="logo">
+        <img src="{{ url_for('static', filename='logo-slg-strip.svg') }}" alt="Silverlake Logo">
       </div>
-
+      <h1 class="mb-4 text-center">Silverlake Part Sales Opportunity Finder</h1>
       <form method="post">
         <div class="row">
           <div class="col-md-6 mb-3">
@@ -138,8 +202,11 @@ html_template = """
         {% endif %}
       </form>
 
+      {% if search_details %}
+      <h2 class="mt-5">Top Parts for {{ search_details.model }} (Year {{ search_details.year }}) {% if search_details.engine_code %} Engine: {{ search_details.engine_code }} {% endif %}</h2>
+      {% endif %}
+
       {% if parts %}
-      <h2 class="mt-5">Top Parts for "{{ search_inputs.model }}" (Year: {{ search_inputs.year }}, Engine: {{ search_inputs.engine_code or 'Any' }})</h2>
       <table class="table table-striped mt-3">
         <thead><tr>
           <th>Part</th><th>Start Year</th><th>End Year</th><th>Description</th><th>Price</th><th>Parts in Stock</th><th>Backorders</th><th>Parts Sold</th><th>Not Found 180 days</th><th>Potential Profit</th><th>Sales Speed</th><th>Opportunity Score</th>
@@ -147,18 +214,18 @@ html_template = """
         <tbody>
         {% for row in parts %}
           <tr>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['Part'] }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['IC Start Year'] }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['IC End Year'] }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['IC Description'] }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>£{{ "{:.2f}".format(row['B Price']) }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['Parts in Stock'] }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['Backorders'] }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['Parts Sold All'] }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ row['Not Found 180 days'] }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>£{{ "{:.2f}".format(row['Potential_Profit']) }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>{{ "{:.2f}".format(row['Sales_Speed']) }}</td>
-            <td {% if row['Backorders'] > 0 %} style="color: green;" {% endif %}>£{{ "{:.2f}".format(row['Opportunity_Score']) }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #00bcd4;" {% endif %}>{{ row['Part'] }}</td>
+            <td>{{ row['IC Start Year'] }}</td>
+            <td>{{ row['IC End Year'] }}</td>
+            <td>{{ row['IC Description'] }}</td>
+            <td>£{{ "{:.2f}".format(row['B Price']) }}</td>
+            <td>{{ row['Parts in Stock'] }}</td>
+            <td>{{ row['Backorders'] }}</td>
+            <td>{{ row['Parts Sold All'] }}</td>
+            <td>{{ row['Not Found 180 days'] }}</td>
+            <td>£{{ "{:.2f}".format(row['Potential_Profit']) }}</td>
+            <td>{{ "{:.2f}".format(row['Sales_Speed']) }}</td>
+            <td>£{{ "{:.2f}".format(row['Opportunity_Score']) }}</td>
           </tr>
         {% endfor %}
         </tbody>
@@ -209,9 +276,8 @@ def autocomplete_model():
 # Main route
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    global last_search_result, last_search_inputs
+    global last_search_result, search_details
     parts = None
-    search_inputs = None
     if request.method == 'POST':
         model = request.form['model']
         year = int(request.form['year'])
@@ -242,16 +308,10 @@ def index():
                               'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
             parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
             last_search_result = parts
+            search_details = {'model': model, 'year': year, 'engine_code': engine_code}
             parts = parts.to_dict('records')
 
-            search_inputs = {
-                'model': model,
-                'year': year,
-                'engine_code': engine_code
-            }
-            last_search_inputs = search_inputs
-
-    return render_template_string(html_template, parts=parts, search_inputs=last_search_inputs)
+    return render_template_string(html_template, parts=parts, search_details=search_details)
 
 # Download route
 @app.route('/download')
