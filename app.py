@@ -105,7 +105,7 @@ html_template = """
         border-color: #5c9c13;
         box-shadow: 0 0 5px #5c9c13;
         background-color: #d6f5c1;
-        color: #fff;
+        color: #lalala;
       }
       table {
         color: #f0f0f0;
