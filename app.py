@@ -98,7 +98,7 @@ html_template = """
       }
       .form-control {
         background-color: #d6f5c1; /* Background field */
-        color: #f0f0f0;
+        color: #e01212; /* f0f0f0 */
         border: 1px solid #333;
       }
       .form-control:focus {
