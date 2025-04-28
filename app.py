@@ -39,7 +39,7 @@ login_template = """
     }
     .form-control {
       background-color: #1a1a1a;
-      color: #f0f0f0;
+      color: #1a1a1a;
     }
     .btn-primary {
       background-color: #5c9c13;
