@@ -77,14 +77,15 @@ def index():
             (df['IC End Year'] >= year)
         ]
 
-# 👉 Correct Engine Code special filtering
-if engine_code:
-    def custom_filter(row):
-        description = str(row['IC Description']).lower()
-        if 'engine code' in description:
-            return engine_code.lower() in description
-        else:
-            return True  # Keep rows without 'engine code' mention
+def custom_filter(row):
+    description = str(row['IC Description']).lower()
+    if 'engine code' in description:
+        # If 'engine code' is mentioned, check if the user engine code is present
+        return engine_code.lower() in description
+    else:
+        # If 'engine code' not mentioned, allow the part
+        return True
+
 
     filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
