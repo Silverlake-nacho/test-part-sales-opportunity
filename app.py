@@ -81,7 +81,7 @@ def index():
         if engine_code:
             def custom_filter(row):
                 description = str(row['IC Description'])
-                if 'Engine Code' in description:
+                if 'Engine Code' or 'engine code' in description:
                     return engine_code.lower() in description.lower()
                 else:
                     return True  # Keep rows without 'Engine Code' mention
