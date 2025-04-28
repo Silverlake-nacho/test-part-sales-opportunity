@@ -39,7 +39,7 @@ def logout():
 
 @app.before_request
 def require_login():
-    allowed_routes = ['login', 'static', 'autocomplete_model']
+    allowed_routes = ['login', 'static', 'autocomplete_model', 'autocomplete_engine_code']
     if request.endpoint not in allowed_routes and not session.get('logged_in'):
         return redirect(url_for('login'))
 
@@ -60,6 +60,15 @@ def autocomplete_model():
         return {'models': matches}
     return {'models': []}
 
+@app.route('/autocomplete_engine_code', methods=['GET'])
+def autocomplete_engine_code():
+    query = request.args.get('query', '')
+    if query:
+        filtered_codes = df['IC Description'].dropna().unique()
+        matches = [code for code in filtered_codes if 'engine code' in code.lower() and query.lower() in code.lower()]
+        return {'engine_codes': matches}
+    return {'engine_codes': []}
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     global last_search_result, search_details
@@ -77,17 +86,13 @@ def index():
             (df['IC End Year'] >= year)
         ]
 
-        # 👉 Correct Engine Code special filtering
         if engine_code:
             def custom_filter(row):
-                description = str(row['IC Description'])
+                description = str(row['IC Description']).lower()
                 if 'engine code' in description:
-                    return engine_code.lower() in description.lower()
-                if 'Engine Code' in description:
-                    return engine_code.lower() in description.lower()
+                    return engine_code.lower() in description
                 else:
-                    return True  # Keep rows without 'Engine Code' mention
-
+                    return True
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
         if not filtered.empty:
