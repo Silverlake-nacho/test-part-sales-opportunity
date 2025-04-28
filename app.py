@@ -91,6 +91,8 @@ def index():
                 description = str(row['IC Description']).lower()
                 if 'engine code' in description:
                     return engine_code.lower() in description
+                if 'Engine Code' in description:
+                    return engine_code.lower() in description
                 else:
                     return True
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
