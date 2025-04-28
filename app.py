@@ -25,14 +25,14 @@
       }
       .form-control {
         background-color: #d6f5c1;
-        color: #333;
-        border: 1px solid #333;
+        color: #lalala;
+        border: 1px solid #lalala;
       }
       .form-control:focus {
         border-color: #5c9c13;
         box-shadow: 0 0 5px #5c9c13;
         background-color: #d6f5c1;
-        color: #333;
+        color: #lalala;
       }
       table {
         color: #f0f0f0;
@@ -43,7 +43,7 @@
       }
       #model-suggestions {
         background-color: #d6f5c1;
-        color: #333;
+        color: #lalala;
         border: 1px solid #5c9c13;
       }
       .navbar {
