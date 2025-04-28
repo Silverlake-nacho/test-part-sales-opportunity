@@ -77,16 +77,17 @@ def index():
             (df['IC End Year'] >= year)
         ]
 
-        # 👉 Correct Engine Code special filtering
-        if engine_code:
-            def custom_filter(row):
-                description = str(row['IC Description'])
-                if 'Engine Code' or 'engine code' in description:
-                    return engine_code.lower() in description.lower()
-                else:
-                    return True  # Keep rows without 'Engine Code' mention
+# 👉 Correct Engine Code special filtering
+if engine_code:
+    def custom_filter(row):
+        description = str(row['IC Description']).lower()
+        if 'engine code' in description:
+            return engine_code.lower() in description
+        else:
+            return True  # Keep rows without 'engine code' mention
 
-            filtered = filtered[filtered.apply(custom_filter, axis=1)]
+    filtered = filtered[filtered.apply(custom_filter, axis=1)]
+
 
         if not filtered.empty:
             filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
