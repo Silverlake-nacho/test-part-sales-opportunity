@@ -1,3 +1,4 @@
+html_template = """
 <!doctype html>
 <html lang="en">
   <head>
@@ -14,37 +15,37 @@
         color: black;
       }
       h1, h2, label {
-        color: #5c9c13;
+        color: ##5c9c13;
       }
       .btn-primary, .btn-success {
-        background-color: #5c9c13;
+        background-color: ##5c9c13;
         border: none;
       }
       .btn-primary:hover, .btn-success:hover {
-        background-color: #4a8010;
+        background-color: ##4a8010;
       }
       .form-control {
-        background-color: #d6f5c1;
-        color: #lalala;
-        border: 1px solid #lalala;
+        background-color: ##d6f5c1;
+        color: ##333;
+        border: 1px solid ##333;
       }
       .form-control:focus {
-        border-color: #5c9c13;
-        box-shadow: 0 0 5px #5c9c13;
-        background-color: #d6f5c1;
-        color: #lalala;
+        border-color: ##5c9c13;
+        box-shadow: 0 0 5px ##5c9c13;
+        background-color: ##d6f5c1;
+        color: ##333;
       }
       table {
-        color: #f0f0f0;
-        background-color: #111;
+        color: ##f0f0f0;
+        background-color: ##111;
       }
       th, td {
-        border-bottom: 1px solid #5c9c13;
+        border-bottom: 1px solid ##5c9c13;
       }
       #model-suggestions {
-        background-color: #d6f5c1;
-        color: #lalala;
-        border: 1px solid #5c9c13;
+        background-color: ##d6f5c1;
+        color: ##333;
+        border: 1px solid ##5c9c13;
       }
       .navbar {
         border-radius: 10px;
@@ -96,7 +97,7 @@
     <div class="container">
 
       <!-- Navbar -->
-      <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #5c9c13;">
+      <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: ##5c9c13;">
         <div class="container-fluid">
           <a class="navbar-brand" href="#">
             <img src="{{ url_for('static', filename='logo-slg-strip.svg') }}" alt="Silverlake Logo">
@@ -153,7 +154,7 @@
         <tbody>
         {% for row in parts %}
           <tr>
-            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ row['Part'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: ##5c9c13;" {% endif %}>{{ row['Part'] }}</td>
             <td>{{ row['IC Start Year'] }}</td>
             <td>{{ row['IC End Year'] }}</td>
             <td>{{ row['IC Description'] }}</td>
@@ -173,3 +174,4 @@
     </div>
   </body>
 </html>
+"""
