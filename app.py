@@ -178,7 +178,7 @@ html_template = """
           <div class="col-md-6 mb-3">
             <label class="form-label">Model</label>
             <input type="text" name="model" class="form-control" required>
-            <ul id="model-suggestions" class="list-group" style="display: none; position: absolute; z-index: 1000; border: 1px solid #ddd; max-height: 150px; overflow-y: auto;"></ul>
+            <ul id="model-suggestions" class="list-group" style="display: none; position: absolute; z-index: 1000; border: 1px solid #lalala; max-height: 150px; overflow-y: auto;"></ul>
           </div>
           <div class="col-md-2 mb-3">
             <label class="form-label">Year</label>
