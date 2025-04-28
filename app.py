@@ -98,7 +98,7 @@ html_template = """
       }
       .form-control {
         background-color: #d6f5c1; /* Background field */
-        color: #e01212; /* f0f0f0 */
+        color: #lalala; /* f0f0f0 */
         border: 1px solid #333;
       }
       .form-control:focus {
@@ -116,7 +116,7 @@ html_template = """
       }
       #model-suggestions {
         background-color: #d6f5c1;
-        color: #f0f0f0;
+        color: #lalala; /* f0f0f0 */
         border: 1px solid #5c9c13;
       }
       .logo {
