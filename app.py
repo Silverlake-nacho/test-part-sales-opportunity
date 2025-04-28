@@ -97,14 +97,14 @@ html_template = """
         background-color: #5c9c13;
       }
       .form-control {
-        background-color: #f08989;
+        background-color: #d6f5c1; /* Background field */
         color: #f0f0f0;
         border: 1px solid #333;
       }
       .form-control:focus {
         border-color: #5c9c13;
         box-shadow: 0 0 5px #5c9c13;
-        background-color: #1a1a1a;
+        background-color: #d6f5c1;
         color: #fff;
       }
       table {
@@ -115,7 +115,7 @@ html_template = """
         border-bottom: 1px solid #5c9c13;
       }
       #model-suggestions {
-        background-color: #1a1a1a;
+        background-color: #d6f5c1;
         color: #f0f0f0;
         border: 1px solid #5c9c13;
       }
