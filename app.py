@@ -1,3 +1,28 @@
+from flask import Flask, request, render_template_string, send_file, redirect, url_for, session
+import pandas as pd
+from io import BytesIO
+from datetime import datetime, timedelta
+
+# Load your dataset
+file_path = 'WebFleet.csv'
+df = pd.read_csv(file_path)
+
+# Flask App
+app = Flask(__name__)
+app.secret_key = 'your_super_secret_key_here'  # Needed for session management!
+
+# Define login credentials
+USERS = {
+    'admin': 'Silverlake1!',
+    'nacho': 'Silverlake1!'
+}
+
+# Global variable to hold last search result and search input
+last_search_result = None
+search_details = None
+
+# Login page template
+login_template = """
 html_template = """
 <!doctype html>
 <html lang="en">
