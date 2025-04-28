@@ -42,7 +42,7 @@ login_template = """
       color: #f0f0f0;
     }
     .btn-primary {
-      background-color: #00bcd4;
+      background-color: #5c9c13;
       border: none;
     }
   </style>
@@ -87,23 +87,23 @@ html_template = """
         color: black;  /* Set text color to black */
       }
       h1, h2, label {
-        color: #00bcd4;
+        color: #5c9c13;
       }
       .btn-primary, .btn-success {
-        background-color: #00bcd4;
+        background-color: #5c9c13;
         border: none;
       }
       .btn-primary:hover, .btn-success:hover {
-        background-color: #0097a7;
+        background-color: #5c9c13;
       }
       .form-control {
-        background-color: #1a1a1a;
+        background-color: #f08989;
         color: #f0f0f0;
         border: 1px solid #333;
       }
       .form-control:focus {
-        border-color: #00bcd4;
-        box-shadow: 0 0 5px #00bcd4;
+        border-color: #5c9c13;
+        box-shadow: 0 0 5px #5c9c13;
         background-color: #1a1a1a;
         color: #fff;
       }
@@ -112,12 +112,12 @@ html_template = """
         background-color: #111;
       }
       th, td {
-        border-bottom: 1px solid #00bcd4;
+        border-bottom: 1px solid #5c9c13;
       }
       #model-suggestions {
         background-color: #1a1a1a;
         color: #f0f0f0;
-        border: 1px solid #00bcd4;
+        border: 1px solid #5c9c13;
       }
       .logo {
         text-align: center;
@@ -217,7 +217,7 @@ html_template = """
         <tbody>
         {% for row in parts %}
           <tr>
-            <td {% if row['Backorders'] > 0 %} style="color: #00bcd4;" {% endif %}>{{ row['Part'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ row['Part'] }}</td>
             <td>{{ row['IC Start Year'] }}</td>
             <td>{{ row['IC End Year'] }}</td>
             <td>{{ row['IC Description'] }}</td>
