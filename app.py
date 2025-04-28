@@ -83,6 +83,8 @@ def index():
                 description = str(row['IC Description'])
                 if 'engine code' in description:
                     return engine_code.lower() in description.lower()
+                if 'Engine Code' in description:
+                    return engine_code.lower() in description.lower()
                 else:
                     return True  # Keep rows without 'Engine Code' mention
 
