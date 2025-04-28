@@ -25,7 +25,7 @@
         background-color: #4a8010;
       }
       .form-control {
-        background-color: #ffffff;
+        background-color: #d6f5c1;
         color: #333;
         border: 1px solid #333;
       }
@@ -33,17 +33,12 @@
         border-color: #5c9c13;
         box-shadow: 0 0 5px #5c9c13;
       }
-      table.dataTable {
+      table {
         color: #f0f0f0;
         background-color: #111;
-        border-collapse: collapse;
       }
-      table.dataTable th, table.dataTable td {
+      th, td {
         border-bottom: 1px solid #5c9c13;
-        padding: 8px;
-      }
-      table.dataTable tbody tr:hover {
-        background-color: #1b1b1b;
       }
       #model-suggestions {
         background-color: #d6f5c1;
@@ -58,12 +53,6 @@
         width: 300px;
         max-width: 100%;
         height: auto;
-      }
-      .dataTables_wrapper .dataTables_filter input {
-        background-color: #fff;
-        color: #333;
-        border: 1px solid #333;
-        margin-left: 0.5em;
       }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -126,7 +115,7 @@
       {% endif %}
 
       {% if parts %}
-      <table id="parts-table" class="table table-striped table-hover mt-3">
+      <table id="parts-table" class="table table-striped mt-3">
         <thead><tr>
           <th>Part</th><th>Start Year</th><th>End Year</th><th>Description</th><th>Price</th><th>Parts in Stock</th><th>Backorders</th><th>Parts Sold</th><th>Not Found 180 days</th><th>Potential Profit</th><th>Sales Speed</th><th>Opportunity Score</th>
         </tr></thead>
@@ -164,7 +153,8 @@
               success: function(response) {
                 var suggestions = response.models;
                 var suggestionList = $('#model-suggestions');
-                suggestionList.empty();n                suggestions.forEach(function(model) {
+                suggestionList.empty();
+                suggestions.forEach(function(model) {
                   suggestionList.append('<li class="list-group-item">' + model + '</li>');
                 });
                 suggestionList.show();
@@ -186,7 +176,7 @@
           }
         });
 
-        // Initialize DataTables with better styling and per-column search
+        // Initialize DataTables with per-column search without replacing headers
         var table = $('#parts-table').DataTable({
           pageLength: 25,
           order: [],
@@ -195,7 +185,7 @@
               var column = this;
               var header = $(column.header());
               var title = header.text();
-              header.html('<div class="text-white">' + title + '<br><input type="text" class="form-control form-control-sm mt-1" placeholder="Search"/></div>');
+              header.html('<div>' + title + '<br><input type="text" class="form-control form-control-sm" placeholder="Search" style="margin-top:5px;"/></div>');
               $('input', header).on('keyup change clear', function () {
                 if (column.search() !== this.value) {
                   column.search(this.value).draw();
