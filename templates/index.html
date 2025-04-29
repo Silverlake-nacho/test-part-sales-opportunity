@@ -116,10 +116,19 @@
         </tr></thead>
         <tbody>
         {% for row in parts %}
-          <tr>
-            {% for key in ['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders', 'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score'] %}
-            <td>{{ row[key] }}</td>
-            {% endfor %}
+         <tr>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ row['Part'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ row['IC Start Year'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ row['IC End Year'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ row['IC Description'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>£{{ "{:.2f}".format(row['B Price']) }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ row['Parts in Stock'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ row['Backorders'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ row['Parts Sold All'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ row['Not Found 180 days'] }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>£{{ "{:.2f}".format(row['Potential_Profit']) }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>{{ "{:.2f}".format(row['Sales_Speed']) }}</td>
+            <td {% if row['Backorders'] > 0 %} style="color: #5c9c13;" {% endif %}>£{{ "{:.2f}".format(row['Opportunity_Score']) }}</td>
           </tr>
         {% endfor %}
         </tbody>
