@@ -2,3 +2,5 @@ Flask
 pandas
 xlsxwriter
 gunicorn
+gspread
+oauth2client
