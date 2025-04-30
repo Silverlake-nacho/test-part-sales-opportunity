@@ -10,14 +10,6 @@ df = pd.read_csv(file_path)
 app = Flask(__name__)
 app.secret_key = 'your_super_secret_key_here'
 
-# Setup Google Sheets credentials
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
-client = gspread.authorize(creds)
-
-# Load the spreadsheet and worksheet
-sheet = client.open("1Xw-gCRHSCOIOZXiMPGW4Smq9UXdQRDefvQDW-GO4IXY").sheet1
-
 USERS = {
     'admin': 'Silverlake1!',
     'nacho': 'Silverlake1!'
@@ -127,17 +119,6 @@ def download():
         output.seek(0)
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
-
-@app.route('/search', methods=['POST'])
-def search():
-    engine_code = request.form['engine_code'].strip().lower()
-    data = sheet.get_all_records()
-
-    # Filter rows with matching engine code
-    results = [row for row in data if engine_code in str(row['Engine Code']).lower()]
-
-    return render_template('results.html', engine_code=engine_code, results=results)
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
