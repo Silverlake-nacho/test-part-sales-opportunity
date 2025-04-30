@@ -4,6 +4,60 @@ from io import BytesIO
 from datetime import datetime, timedelta
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+def rgb_to_hex(rgb):
+    r = int(rgb.get('red', 1) * 255)
+    g = int(rgb.get('green', 1) * 255)
+    b = int(rgb.get('blue', 1) * 255)
+    return '#{:02X}{:02X}{:02X}'.format(r, g, b)
+
+def get_matching_google_sheet_rows(engine_code):
+    try:
+        SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+        creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+
+        SPREADSHEET_ID = '1Xw-gCRHSCOIOZXiMPGW4Smq9UXdQRDefvQDW-GO4IXY'
+        RANGE = 'Sheet1'
+
+        service = build('sheets', 'v4', credentials=creds)
+
+        # Get values
+        values_result = service.spreadsheets().values().get(
+            spreadsheetId=SPREADSHEET_ID, range=RANGE).execute()
+        values = values_result.get('values', [])
+
+        # Get formatting
+        format_result = service.spreadsheets().get(
+            spreadsheetId=SPREADSHEET_ID,
+            ranges=[RANGE],
+            fields='sheets.data.rowData.values.effectiveFormat.backgroundColor'
+        ).execute()
+
+        row_data = format_result['sheets'][0]['data'][0]['rowData']
+
+        headers = values[0]
+        rows = []
+
+        for i, row in enumerate(values[1:], start=1):
+            row_dict = {}
+            for j, cell in enumerate(row):
+                cell_text = cell
+                bg_color = row_data[i]['values'][j].get('effectiveFormat', {}).get('backgroundColor', {})
+                hex_color = rgb_to_hex(bg_color)
+                key = headers[j]
+                row_dict[key] = {'value': cell_text, 'bg': hex_color}
+            # Check if any cell contains engine_code
+            if any(engine_code.lower() in str(c).lower() for c in row):
+                rows.append(row_dict)
+
+        return rows
+
+    except Exception as e:
+        print("Error accessing Google Sheets:", e)
+        return []
+
 
 # Load your dataset
 file_path = 'WebFleet.csv'
