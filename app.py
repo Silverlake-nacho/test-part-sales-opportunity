@@ -2,6 +2,8 @@ from flask import Flask, request, render_template, send_file, redirect, url_for,
 import pandas as pd
 from io import BytesIO
 from datetime import datetime, timedelta
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Load your dataset
 file_path = 'WebFleet.csv'
@@ -17,6 +19,20 @@ USERS = {
 
 last_search_result = None
 search_details = None
+
+def get_matching_google_sheet_rows(engine_code):
+    try:
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key('1Xw-gCRHSCOIOZXiMPGW4Smq9UXdQRDefvQDW-GO4IXY').sheet1
+        data = sheet.get_all_records()
+        df_sheet = pd.DataFrame(data)
+        filtered = df_sheet[df_sheet['Engine Code'].astype(str).str.contains(engine_code, case=False, na=False)]
+        return filtered.to_dict(orient='records')
+    except Exception as e:
+        print("Error accessing Google Sheets:", e)
+        return []
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -42,7 +58,6 @@ def require_login():
     allowed_routes = ['login', 'static', 'autocomplete_model']
     if request.endpoint not in allowed_routes and not session.get('logged_in'):
         return redirect(url_for('login'))
-
     if session.get('logged_in'):
         login_time = session.get('login_time')
         if login_time:
@@ -64,6 +79,7 @@ def autocomplete_model():
 def index():
     global last_search_result, search_details
     parts = None
+    google_sheet_matches = []
     if request.method == 'POST':
         model = request.form['model']
         year = int(request.form['year'])
@@ -77,16 +93,12 @@ def index():
             (df['IC End Year'] >= year)
         ]
 
-        # 👉 Correct Engine Code special filtering
         if engine_code:
             def custom_filter(row):
                 description = str(row['IC Description'])
-                if 'engine code' in description:
+                if 'engine code' in description.lower():
                     return engine_code.lower() in description.lower()
-                if 'Engine Code' in description:
-                    return engine_code.lower() in description.lower()
-                else:
-                    return True  # Keep rows without 'Engine Code' mention
+                return True
 
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
@@ -107,7 +119,11 @@ def index():
             search_details = {'model': model, 'year': year, 'engine_code': engine_code}
             parts = parts.to_dict('records')
 
-    return render_template('index.html', parts=parts, search_details=search_details)
+        # Google Sheet integration
+        if engine_code:
+            google_sheet_matches = get_matching_google_sheet_rows(engine_code)
+
+    return render_template('index.html', parts=parts, search_details=search_details, google_sheet_matches=google_sheet_matches)
 
 @app.route('/download')
 def download():
