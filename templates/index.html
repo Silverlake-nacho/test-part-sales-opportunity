@@ -141,7 +141,7 @@
       </table>
       {% endif %}
 	    {% if google_sheet_matches %}
-<h2 class="mt-5">Google Sheet Matches for Engine Code</h2>
+<h2 class="mt-5">Export Matches for Engine Code</h2>
 <table class="table table-striped mt-3">
   <thead>
     <tr>
@@ -154,7 +154,8 @@
     {% for row in google_sheet_matches %}
     <tr>
       {% for cell in row.values() %}
-        <td style="background-color: {{ cell.bg }};">{{ cell.value }}</td>
+        {% <td style="background-color: {{ cell.bg }};">{{ cell.value }}</td>%}
+	    <td>{{ value }}</td>
       {% endfor %}
     </tr>
     {% endfor %}
