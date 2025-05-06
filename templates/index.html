@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -14,9 +13,9 @@
                 <div style="display: flex; gap: 20px; align-items: flex-start;">
                     <div>
                         <input type="text" id="reg_number" name="reg_number" class="form-control" placeholder="Enter registration">
-                        <button type="button" class="btn btn-primary" onclick="lookupVehicle()">Lookup</button>
+                        <button type="button" class="btn btn-primary mt-2" onclick="lookupVehicle()">Lookup</button>
                     </div>
-                    <div id="dvla_info_container" style="border: 1px solid #ccc; padding: 10px; min-width: 300px;">
+                    <div id="dvla_info_container" style="border: 1px solid #ccc; padding: 10px; min-width: 350px;">
                         <h5>Vehicle Info</h5>
                         <table id="dvla_info" class="table table-bordered table-sm">
                             <tbody></tbody>
@@ -48,6 +47,7 @@
                 const res = await fetch('/lookup?reg=' + encodeURIComponent(reg));
                 const data = await res.json();
                 if (data.error) return alert(data.error);
+
                 document.querySelector('input[name="model"]').value = data.make || '';
                 document.querySelector('input[name="year"]').value = data.year || '';
                 document.querySelector('input[name="engine_code"]').value = data.engine_code || '';
