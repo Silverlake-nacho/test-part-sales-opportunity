@@ -7,6 +7,11 @@ from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
+import requests
+from bs4 import BeautifulSoup
+from flask import request, render_template_string
+from collections import defaultdict
+
 def rgb_to_hex(rgb):
     r = int(rgb.get('red', 1) * 255)
     g = int(rgb.get('green', 1) * 255)
@@ -189,6 +194,113 @@ def download():
         output.seek(0)
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
+
+@app.route('/ebay_small_parts')
+def ebay_small_parts():
+    import time
+    model = request.args.get('model', '').strip()
+    year = request.args.get('year', '').strip()
+    if not model or not year:
+        return "Model and year are required.", 400
+
+    # Construct search URL for eBay UK with filters: used, sold, under £20
+    query = f"{model} {year} used car parts"
+    search_url = (
+        "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
+        "&_sop=12&_udhi=20&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
+    )
+    print("🔍 eBay search URL:", search_url)
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
+    }
+
+    # Retry logic
+    response = None
+    for attempt in range(3):
+        try:
+            response = requests.get(search_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            break
+        except Exception as e:
+            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
+            time.sleep(2)
+    else:
+        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    items = soup.select('.s-item')
+
+    part_data = defaultdict(lambda: {"price": "", "link": "", "count": 0})
+
+    for item in items:
+        title_tag = item.select_one('.s-item__title')
+        price_tag = item.select_one('.s-item__price')
+        link_tag = item.select_one('.s-item__link')
+
+        if not title_tag or not price_tag or not link_tag:
+            continue
+
+        title = title_tag.get_text(strip=True)
+        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
+        link = link_tag.get("href")
+
+        try:
+            price = float(price_text)
+        except ValueError:
+            continue
+
+        if price <= 20:
+            if title not in part_data:
+                part_data[title]["price"] = f"£{price:.2f}"
+                part_data[title]["link"] = link
+            part_data[title]["count"] += 1
+
+    if not part_data:
+        return "<p>No results found under £20.</p>"
+
+    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
+    for title, data in part_data.items():
+        html += f"<tr><td>{title}</td><td>{data['price']}</td><td><a href='{data['link']}' target='_blank'>View</a></td><td>{data['count']}</td></tr>"
+    html += "</tbody></table>"
+
+    return render_template_string(html)
+
+
+@app.route('/lookup_registration')
+def lookup_registration():
+    reg = request.args.get('reg', '').strip().upper()
+    if not reg:
+        return {'error': 'No registration provided'}, 400
+
+    try:
+        api_key = 'G7jQjk2Cnv2LDMEZiBp0l1XXwfBrhHlS3b6qLYqY'
+        url = 'https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles'
+
+        headers = {
+            'x-api-key': api_key,
+            'Content-Type': 'application/json'
+        }
+
+        response = requests.post(url, headers=headers, json={"registrationNumber": reg})
+        response.raise_for_status()
+        result = response.json()
+
+        return {
+            'model': result.get('make', ''),
+            'year': int(result.get('yearOfManufacture', 0)),
+            'engine_code': result.get('engineNumber', '')
+        }
+
+    except Exception as e:
+        print(f"DVLA API error: {e}")
+        return {'error': 'Failed to fetch vehicle data.'}, 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
