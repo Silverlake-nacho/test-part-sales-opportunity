@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file, redirect, url_for, session
+from flask import Flask, request, render_template, send_file, redirect, url_for, session, jsonify
 import pandas as pd
 from io import BytesIO
 from datetime import datetime, timedelta
@@ -9,68 +9,17 @@ from googleapiclient.discovery import build
 
 import requests
 from bs4 import BeautifulSoup
-from flask import request, render_template_string
+from flask import render_template_string
 from collections import defaultdict
-
-def rgb_to_hex(rgb):
-    r = int(rgb.get('red', 1) * 255)
-    g = int(rgb.get('green', 1) * 255)
-    b = int(rgb.get('blue', 1) * 255)
-    return '#{:02X}{:02X}{:02X}'.format(r, g, b)
-
-def get_matching_google_sheet_rows(engine_code):
-    try:
-        SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-        creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
-
-        SPREADSHEET_ID = '1Xw-gCRHSCOIOZXiMPGW4Smq9UXdQRDefvQDW-GO4IXY'
-        RANGE = 'Sheet1'
-
-        service = build('sheets', 'v4', credentials=creds)
-
-        # Get values
-        values_result = service.spreadsheets().values().get(
-            spreadsheetId=SPREADSHEET_ID, range=RANGE).execute()
-        values = values_result.get('values', [])
-
-        # Get formatting
-        format_result = service.spreadsheets().get(
-            spreadsheetId=SPREADSHEET_ID,
-            ranges=[RANGE],
-            fields='sheets.data.rowData.values.effectiveFormat.backgroundColor'
-        ).execute()
-
-        row_data = format_result['sheets'][0]['data'][0]['rowData']
-
-        headers = values[0]
-        rows = []
-
-        for i, row in enumerate(values[1:], start=1):
-            row_dict = {}
-            for j, cell in enumerate(row):
-                cell_text = cell
-                bg_color = row_data[i]['values'][j].get('effectiveFormat', {}).get('backgroundColor', {})
-                hex_color = rgb_to_hex(bg_color)
-                key = headers[j]
-                row_dict[key] = {'value': cell_text, 'bg': hex_color}
-            # Check if any cell contains engine_code
-            if any(engine_code.lower() in str(c).lower() for c in row):
-                rows.append(row_dict)
-
-        return rows
-
-    except Exception as e:
-        print("Error accessing Google Sheets:", e)
-        return []
-
-
-# Load your dataset
-file_path = 'WebFleet.csv'
-df = pd.read_csv(file_path)
 
 app = Flask(__name__)
 app.secret_key = 'your_super_secret_key_here'
 
+# Load dataset
+file_path = 'WebFleet.csv'
+df = pd.read_csv(file_path)
+
+# User credentials
 USERS = {
     'admin': 'Silverlake1!',
     'nacho': 'Silverlake1!'
@@ -93,6 +42,34 @@ def get_matching_google_sheet_rows(engine_code):
         print("Error accessing Google Sheets:", e)
         return []
 
+@app.route('/lookup', methods=['POST'])
+def lookup_registration():
+    try:
+        reg = request.json.get('registration', '').replace(" ", "")
+        if not reg:
+            return {'error': 'No registration provided'}, 400
+
+        DVLA_API_URL = f"https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles"
+        headers = {
+            "x-api-key": "G7jQjk2Cnv2LDMEZiBp0l1XXwfBrhHlS3b6qLYqY",  # ⬅️ Replace with your DVLA API key
+            "Content-Type": "application/json"
+        }
+        payload = {"registrationNumber": reg}
+
+        response = requests.post(DVLA_API_URL, json=payload, headers=headers)
+        response.raise_for_status()
+
+        data = response.json()
+        return {
+            'model': data.get('make', ''),
+            'year': int(data.get('yearOfManufacture', 0)),
+            'engine_code': data.get('engineNumber', ''),
+            'all_data': data
+        }
+    except Exception as e:
+        print("DVLA API error:", e)
+        return {'error': 'Failed to fetch vehicle details'}, 500
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
@@ -114,7 +91,7 @@ def logout():
 
 @app.before_request
 def require_login():
-    allowed_routes = ['login', 'static', 'autocomplete_model']
+    allowed_routes = ['login', 'static', 'autocomplete_model', 'lookup_registration', 'lookup']
     if request.endpoint not in allowed_routes and not session.get('logged_in'):
         return redirect(url_for('login'))
     if session.get('logged_in'):
@@ -178,7 +155,6 @@ def index():
             search_details = {'model': model, 'year': year, 'engine_code': engine_code}
             parts = parts.to_dict('records')
 
-        # Google Sheet integration
         if engine_code:
             google_sheet_matches = get_matching_google_sheet_rows(engine_code)
 
@@ -197,41 +173,26 @@ def download():
 
 @app.route('/ebay_small_parts')
 def ebay_small_parts():
-    import time
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
     if not model or not year:
         return "Model and year are required.", 400
 
-    # Construct search URL for eBay UK with filters: used, sold, under £20
     query = f"{model} {year} used car parts"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
         "&_sop=12&_udhi=20&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
     )
-    print("🔍 eBay search URL:", search_url)
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Connection": "keep-alive",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
 
-    # Retry logic
-    response = None
-    for attempt in range(3):
-        try:
-            response = requests.get(search_url, headers=headers, timeout=10)
-            response.raise_for_status()
-            break
-        except Exception as e:
-            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
-            time.sleep(2)
-    else:
-        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
+    try:
+        response = requests.get(search_url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except Exception as e:
+        return f"Failed to fetch data from eBay: {str(e)}", 500
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
@@ -270,65 +231,6 @@ def ebay_small_parts():
     html += "</tbody></table>"
 
     return render_template_string(html)
-
-
-@app.route('/lookup_registration')
-def lookup_registration():
-    reg = request.args.get('reg', '').strip().upper()
-    if not reg:
-        return {'error': 'No registration provided'}, 400
-
-    try:
-        api_key = 'G7jQjk2Cnv2LDMEZiBp0l1XXwfBrhHlS3b6qLYqY'
-        url = 'https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles'
-
-        headers = {
-            'x-api-key': api_key,
-            'Content-Type': 'application/json'
-        }
-
-        response = requests.post(url, headers=headers, json={"registrationNumber": reg})
-        response.raise_for_status()
-        result = response.json()
-
-        return {
-            'model': result.get('make', ''),
-            'year': int(result.get('yearOfManufacture', 0)),
-            'engine_code': result.get('engineNumber', '')
-        }
-
-    except Exception as e:
-        print(f"DVLA API error: {e}")
-        return {'error': 'Failed to fetch vehicle data.'}, 500
-@app.route('/lookup', methods=['POST'])
-def lookup_registration():
-    try:
-        reg = request.json.get('registration', '').replace(" ", "")
-        if not reg:
-            return {'error': 'No registration provided'}, 400
-
-        # Replace this with your DVLA API endpoint and headers
-        DVLA_API_URL = f"https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles"
-        headers = {
-            "x-api-key": "G7jQjk2Cnv2LDMEZiBp0l1XXwfBrhHlS3b6qLYqY",  # Replace with your actual DVLA API key
-            "Content-Type": "application/json"
-        }
-        payload = {"registrationNumber": reg}
-
-        response = requests.post(DVLA_API_URL, json=payload, headers=headers)
-        response.raise_for_status()
-
-        data = response.json()
-        return {
-            'model': data.get('make', ''),
-            'year': int(data.get('yearOfManufacture', 0)),
-            'engine_code': data.get('engineNumber', ''),
-            'all_data': data
-        }
-    except Exception as e:
-        print("DVLA API error:", e)
-        return {'error': 'Failed to fetch vehicle details'}, 500
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
