@@ -300,6 +300,34 @@ def lookup_registration():
     except Exception as e:
         print(f"DVLA API error: {e}")
         return {'error': 'Failed to fetch vehicle data.'}, 500
+@app.route('/lookup', methods=['POST'])
+def lookup_registration():
+    try:
+        reg = request.json.get('registration', '').replace(" ", "")
+        if not reg:
+            return {'error': 'No registration provided'}, 400
+
+        # Replace this with your DVLA API endpoint and headers
+        DVLA_API_URL = f"https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles"
+        headers = {
+            "x-api-key": "G7jQjk2Cnv2LDMEZiBp0l1XXwfBrhHlS3b6qLYqY",  # Replace with your actual DVLA API key
+            "Content-Type": "application/json"
+        }
+        payload = {"registrationNumber": reg}
+
+        response = requests.post(DVLA_API_URL, json=payload, headers=headers)
+        response.raise_for_status()
+
+        data = response.json()
+        return {
+            'model': data.get('make', ''),
+            'year': int(data.get('yearOfManufacture', 0)),
+            'engine_code': data.get('engineNumber', ''),
+            'all_data': data
+        }
+    except Exception as e:
+        print("DVLA API error:", e)
+        return {'error': 'Failed to fetch vehicle details'}, 500
 
 
 if __name__ == '__main__':
