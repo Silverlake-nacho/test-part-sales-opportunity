@@ -51,7 +51,7 @@ def lookup_registration():
 
         DVLA_API_URL = f"https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles"
         headers = {
-            "x-api-key": "G7jQjk2Cnv2LDMEZiBp0l1XXwfBrhHlS3b6qLYqY",  # ⬅️ Replace with your DVLA API key
+            "x-api-key": "G7jQjk2Cnv2LDMEZiBp0l1XXwfBrhHlS3b6qLYqY",  #  Replace with your DVLA API key
             "Content-Type": "application/json"
         }
         payload = {"registrationNumber": reg}
