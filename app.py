@@ -265,7 +265,8 @@ def ebay_small_parts():
             part_data[title]["count"] += 1
 
     if not part_data:
-        return "<p>No results found under £30. <a href="https://www.ebay.co.uk/sch/i.html?_nkw={{ model }}+{{ year }}+car+parts" target="_blank">Search manually on eBay</a></p>"
+       return '<p>No results found under £30. <a href="https://www.ebay.co.uk/sch/i.html?_nkw={model}+{year}+car+parts" target="_blank">Search manually on eBay</a></p>'.format(model=model, year=year)
+
 
     html = "<table class='table table-striped'><thead><tr><th>Thumbnail</th><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
     for title, data in part_data.items():
