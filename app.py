@@ -203,20 +203,24 @@ def ebay_small_parts():
     if not model or not year:
         return "Model and year are required.", 400
 
-    # Construct eBay search URL
+    # Construct search URL for eBay UK with filters: used, sold, under £20
     query = f"{model} {year} used car parts"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
         "&_sop=12&_udhi=30&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
     )
-    print(f"🔍 Searching eBay with URL: {search_url}")
+    print("🔍 eBay search URL:", search_url)
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                       "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
     }
 
+    # Retry logic
     response = None
     for attempt in range(3):
         try:
@@ -227,25 +231,17 @@ def ebay_small_parts():
             print(f"eBay fetch attempt {attempt + 1} failed: {e}")
             time.sleep(2)
     else:
-  
-        return render_template_string("<p><strong>No results found. eBay may have changed its structure or blocked the request. Try again later or inspect logs.</strong></p>")
-
+        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
 
     soup = BeautifulSoup(response.text, 'html.parser')
-
-    # OPTIONAL: Uncomment to inspect the full HTML returned from eBay
-    print(soup.prettify())
-
     items = soup.select('.s-item')
-    print(f"🧾 Total .s-item elements found: {len(items)}")
 
-    part_data = defaultdict(lambda: {"price": "", "link": "", "count": 0, "img": ""})
+    part_data = defaultdict(lambda: {"price": "", "link": "", "count": 0})
 
     for item in items:
         title_tag = item.select_one('.s-item__title')
         price_tag = item.select_one('.s-item__price')
         link_tag = item.select_one('.s-item__link')
-        img_tag = item.select_one('.s-item__image-img')
 
         if not title_tag or not price_tag or not link_tag:
             continue
@@ -253,7 +249,6 @@ def ebay_small_parts():
         title = title_tag.get_text(strip=True)
         price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
         link = link_tag.get("href")
-        image_url = img_tag.get("src") if img_tag else ""
 
         try:
             price = float(price_text)
@@ -264,23 +259,14 @@ def ebay_small_parts():
             if title not in part_data:
                 part_data[title]["price"] = f"£{price:.2f}"
                 part_data[title]["link"] = link
-                part_data[title]["img"] = image_url
             part_data[title]["count"] += 1
 
     if not part_data:
-        return render_template_string("<p><strong>No results found under £30. Please check query or HTML structure.</strong></p>")
+        return "<p>No results found under £30.</p>"
 
-    html = "<table class='table table-striped'><thead><tr><th>Image</th><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
+    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
     for title, data in part_data.items():
-        html += (
-            f"<tr>"
-            f"<td><img src='{data['img']}' width='60'></td>"
-            f"<td>{title}</td>"
-            f"<td>{data['price']}</td>"
-            f"<td><a href='{data['link']}' target='_blank'>View</a></td>"
-            f"<td>{data['count']}</td>"
-            f"</tr>"
-        )
+        html += f"<tr><td>{title}</td><td>{data['price']}</td><td><a href='{data['link']}' target='_blank'>View</a></td><td>{data['count']}</td></tr>"
     html += "</tbody></table>"
 
     return render_template_string(html)
