@@ -294,7 +294,11 @@ if part_title_element:
     part['title'] = part_title_element.text
 else:
     part['title'] = "No title available"  # O cualquier valor por defecto que prefieras
-        part['price'] = item.find('span', class_='s-item__price').text
+part_price_element = item.find('span', class_='s-item__price')
+if part_price_element:
+    part['price'] = part_price_element.text
+else:
+    part['price'] = "No price available"  # O cualquier valor por defecto que prefieras
         part['link'] = item.find('a', class_='s-item__link')['href']
         part['image_url'] = item.find('img', class_='s-item__image-img')['src']
         parts.append(part)
