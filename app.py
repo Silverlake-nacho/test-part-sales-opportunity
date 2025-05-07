@@ -289,28 +289,28 @@ def get_ebay_parts(model, year):
     parts = []
     for item in soup.find_all('li', class_='s-item'):
         part = {}
-part_title_element = item.find('h3', class_='s-item__title')
-if part_title_element:
-    part['title'] = part_title_element.text
-else:
-    part['title'] = "No title available"  # O cualquier valor por defecto que prefieras
-part_price_element = item.find('span', class_='s-item__price')
-if part_price_element:
-    part['price'] = part_price_element.text
-else:
-    part['price'] = "No price available"  # O cualquier valor por defecto que prefieras
-part_link_element = item.find('a', class_='s-item__link')
-if part_link_element:
-    part['link'] = part_link_element['href']
-else:
-    part['link'] = "No link available"  # O cualquier valor por defecto que prefieras
-part_image_element = item.find('img', class_='s-item__image-img')
-if part_image_element:
-    part['image_url'] = part_image_element['src']
-else:
-    part['image_url'] = "No image available"  # O cualquier valor por defecto que prefieras
+    part_title_element = item.find('h3', class_='s-item__title')
+    if part_title_element:
+        part['title'] = part_title_element.text
+    else:
+        part['title'] = "No title available"  # O cualquier valor por defecto que prefieras
+    part_price_element = item.find('span', class_='s-item__price')
+    if part_price_element:
+        part['price'] = part_price_element.text
+    else:
+        part['price'] = "No price available"  # O cualquier valor por defecto que prefieras
+    part_link_element = item.find('a', class_='s-item__link')
+    if part_link_element:
+        part['link'] = part_link_element['href']
+    else:
+        part['link'] = "No link available"  # O cualquier valor por defecto que prefieras
+    part_image_element = item.find('img', class_='s-item__image-img')
+    if part_image_element:
+        part['image_url'] = part_image_element['src']
+    else:
+        part['image_url'] = "No image available"  # O cualquier valor por defecto que prefieras
 
-parts.append(part)
+    parts.append(part)
 
 return parts
 
