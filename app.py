@@ -289,7 +289,11 @@ def get_ebay_parts(model, year):
     parts = []
     for item in soup.find_all('li', class_='s-item'):
         part = {}
-        part['title'] = item.find('h3', class_='s-item__title').text
+        part_title_element = item.find('h3', class_='s-item__title')
+            if part_title_element:
+                part['title'] = part_title_element.text
+            else:
+                part['title'] = "No title available"  # O cualquier valor por defecto que prefieras
         part['price'] = item.find('span', class_='s-item__price').text
         part['link'] = item.find('a', class_='s-item__link')['href']
         part['image_url'] = item.find('img', class_='s-item__image-img')['src']
