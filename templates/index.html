@@ -60,7 +60,7 @@
   </head>
   <body class="p-4">
     <div class="container">
-	<div class="logo">
+      <div class="logo">
         <img src="{{ url_for('static', filename='logo-slg-strip.svg') }}" alt="Silverlake Logo">
       </div>
 
@@ -108,10 +108,8 @@
         {% if parts %}
           <a href="/download" class="btn btn-success ms-2">Download Excel</a>
         {% endif %}
-      
-<button type="button" class="btn btn-warning ms-2" id="ebayButton">eBay Small Parts</button>
-
-</form>
+        <button type="button" class="btn btn-warning ms-2" id="ebayButton">eBay Small Parts</button>
+      </form>
 
       {% if search_details %}
       <h2 class="mt-5">Top Parts for {{ search_details.model }} (Year {{ search_details.year }}) {% if search_details.engine_code %} Engine: {{ search_details.engine_code }} {% endif %}</h2>
@@ -140,32 +138,29 @@
           </tr>
         {% endfor %}
         </tbody>
-	      
       </table>
       {% endif %}
-	    {% if google_sheet_matches %}
-<h2 class="mt-5">Google Sheet Matches for Engine Code</h2>
-<table class="table table-striped mt-3">
-  <thead>
-    <tr>
-      {% for key in google_sheet_matches[0].keys() %}
-      <th>{{ key }}</th>
-      {% endfor %}
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in google_sheet_matches %}
-    <tr>
-      {% for value in row.values() %}
-      <td>{{ value }}</td>
-      {% endfor %}
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% endif %}
-	    
-
+      {% if google_sheet_matches %}
+      <h2 class="mt-5">Google Sheet Matches for Engine Code</h2>
+      <table class="table table-striped mt-3">
+        <thead>
+          <tr>
+            {% for key in google_sheet_matches[0].keys() %}
+            <th>{{ key }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in google_sheet_matches %}
+          <tr>
+            {% for value in row.values() %}
+            <td>{{ value }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
     </div>
 
     <script>
@@ -203,7 +198,6 @@
           }
         });
 
-        // Initialize DataTables with per-column search without replacing headers
         var table = $('#parts-table').DataTable({
           pageLength: 25,
           order: [],
@@ -224,51 +218,33 @@
       });
     </script>
 
-  
-<!-- Modal -->
-<div class="modal fade" id="ebayModal" tabindex="-1" aria-labelledby="ebayModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="ebayModalLabel">eBay Small Parts Lookup</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body" id="ebayModalBody">
-        <p>Loading...</p>
-      </div>
-    </div>
-  </div>
-</div>
+    <script>
+      $(document).ready(function() {
+        $('#ebayButton').on('click', function() {
+          const model = $('input[name="model"]').val().trim();
+          const year = $('input[name="year"]').val().trim();
+          if (!model || !year) {
+            alert("Please enter both model and year first.");
+            return;
+          }
 
-</body>
+          $('#ebayModalBody').html('<p>Loading...</p>');
+          $('#ebayModal').modal('show');
 
-<script>
-  $(document).ready(function() {
-    $('#ebayButton').on('click', function() {
-      const model = $('input[name="model"]').val().trim();
-      const year = $('input[name="year"]').val().trim();
-      if (!model || !year) {
-        alert("Please enter both model and year first.");
-        return;
-      }
-
-      $('#ebayModalBody').html('<p>Loading...</p>');
-      $('#ebayModal').modal('show');
-
-      $.ajax({
-        url: '/ebay_small_parts',
-        method: 'GET',
-        data: { model: model, year: year },
-        success: function(data) {
-          $('#ebayModalBody').html(data);
-        },
-        error: function() {
-          $('#ebayModalBody').html('<p>Error loading data.</p>');
-        }
+          $.ajax({
+            url: '/ebay_small_parts',
+            method: 'GET',
+            data: { model: model, year: year },
+            success: function(data) {
+              $('#ebayModalBody').html(data);
+            },
+            error: function() {
+              $('#ebayModalBody').html('<p>Error loading data.</p>');
+            }
+          });
+        });
       });
-    });
-  });
-</script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
 </html>
