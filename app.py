@@ -310,7 +310,7 @@ if part_image_element:
 else:
     part['image_url'] = "No image available"  # O cualquier valor por defecto que prefieras
 
-        parts.append(part)
+parts.append(part)
     
     return parts
 
