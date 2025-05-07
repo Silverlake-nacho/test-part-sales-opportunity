@@ -195,15 +195,23 @@ def download():
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
 
-@app.route('/ebay_small_parts')
+@app.route('/ebay_small_parts', methods=['GET'])
 def ebay_small_parts():
     import time
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
     if not model or not year:
         return "Model and year are required.", 400
-
-    # Construct search URL for eBay UK with filters: used, sold, under £20
+        
+    model = request.args.get('model')
+    year = request.args.get('year')
+    
+    # Example function that returns part listings with the image URL
+    ebay_parts = get_ebay_parts(model, year)
+    
+    # Pass the parts data, including image URLs, to the template
+    return render_template('ebay_modal_content.html', parts=ebay_parts)
+    # Construct search URL for eBay UK with filters: used, sold, under £30
     query = f"{model} {year} used car parts"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
@@ -270,6 +278,25 @@ def ebay_small_parts():
     html += "</tbody></table>"
 
     return render_template_string(html)
+    
+def get_ebay_parts(model, year):
+    # Fetch eBay search results for the part
+    search_url = f'https://www.ebay.com/sch/i.html?_nkw={model}+{year}&_ipg=240'
+    response = requests.get(search_url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    
+    # Find all listings and extract the first image URL for each
+    parts = []
+    for item in soup.find_all('li', class_='s-item'):
+        part = {}
+        part['title'] = item.find('h3', class_='s-item__title').text
+        part['price'] = item.find('span', class_='s-item__price').text
+        part['link'] = item.find('a', class_='s-item__link')['href']
+        part['image_url'] = item.find('img', class_='s-item__image-img')['src']
+        parts.append(part)
+    
+    return parts
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
