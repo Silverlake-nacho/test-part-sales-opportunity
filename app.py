@@ -227,12 +227,14 @@ def ebay_small_parts():
             print(f"eBay fetch attempt {attempt + 1} failed: {e}")
             time.sleep(2)
     else:
-        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
+  
+        return render_template_string("<p><strong>No results found. eBay may have changed its structure or blocked the request. Try again later or inspect logs.</strong></p>")
+
 
     soup = BeautifulSoup(response.text, 'html.parser')
 
     # OPTIONAL: Uncomment to inspect the full HTML returned from eBay
-    # print(soup.prettify())
+    print(soup.prettify())
 
     items = soup.select('.s-item')
     print(f"🧾 Total .s-item elements found: {len(items)}")
