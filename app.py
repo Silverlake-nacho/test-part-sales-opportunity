@@ -2,15 +2,26 @@ from flask import Flask, request, render_template, send_file, redirect, url_for,
 import pandas as pd
 from io import BytesIO
 from datetime import datetime, timedelta
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 import requests
 from bs4 import BeautifulSoup
-from flask import request, render_template_string
-from collections import defaultdict
+
+app = Flask(__name__)
+app.secret_key = 'your_super_secret_key_here'
+
+# Load CSV dataset
+df = pd.read_csv('WebFleet.csv')
+
+# Users for login
+USERS = {
+    'admin': 'Silverlake1!',
+    'nacho': 'Silverlake1!'
+}
+
+last_search_result = None
+search_details = None
 
 def rgb_to_hex(rgb):
     r = int(rgb.get('red', 1) * 255)
@@ -28,12 +39,10 @@ def get_matching_google_sheet_rows(engine_code):
 
         service = build('sheets', 'v4', credentials=creds)
 
-        # Get values
         values_result = service.spreadsheets().values().get(
             spreadsheetId=SPREADSHEET_ID, range=RANGE).execute()
         values = values_result.get('values', [])
 
-        # Get formatting
         format_result = service.spreadsheets().get(
             spreadsheetId=SPREADSHEET_ID,
             ranges=[RANGE],
@@ -41,9 +50,8 @@ def get_matching_google_sheet_rows(engine_code):
         ).execute()
 
         row_data = format_result['sheets'][0]['data'][0]['rowData']
-
         headers = values[0]
-        rows = []
+        matches = []
 
         for i, row in enumerate(values[1:], start=1):
             row_dict = {}
@@ -53,31 +61,13 @@ def get_matching_google_sheet_rows(engine_code):
                 hex_color = rgb_to_hex(bg_color)
                 key = headers[j]
                 row_dict[key] = {'value': cell_text, 'bg': hex_color}
-            # Check if any cell contains engine_code
-            if any(engine_code.lower() in str(c).lower() for c in row):
-                rows.append(row_dict)
+            if any(engine_code.lower() in str(cell).lower() for cell in row):
+                matches.append(row_dict)
 
-        return rows
-
+        return matches
     except Exception as e:
         print("Error accessing Google Sheets:", e)
         return []
-
-
-# Load your dataset
-file_path = 'WebFleet.csv'
-df = pd.read_csv(file_path)
-
-app = Flask(__name__)
-app.secret_key = 'your_super_secret_key_here'
-
-USERS = {
-    'admin': 'Silverlake1!',
-    'nacho': 'Silverlake1!'
-}
-
-last_search_result = None
-search_details = None
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -125,6 +115,7 @@ def index():
     global last_search_result, search_details
     parts = None
     google_sheet_matches = []
+
     if request.method == 'POST':
         model = request.form['model']
         year = int(request.form['year'])
@@ -144,7 +135,6 @@ def index():
                 if 'engine code' in description.lower():
                     return engine_code.lower() in description.lower()
                 return True
-
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
         if not filtered.empty:
@@ -164,7 +154,6 @@ def index():
             search_details = {'model': model, 'year': year, 'engine_code': engine_code}
             parts = parts.to_dict('records')
 
-        # Google Sheet integration
         if engine_code:
             google_sheet_matches = get_matching_google_sheet_rows(engine_code)
 
@@ -180,109 +169,6 @@ def download():
         output.seek(0)
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
-
-@app.route('/ebay_small_parts', methods=['GET'])
-def ebay_small_parts():
-    import time
-    model = request.args.get('model', '').strip()
-    year = request.args.get('year', '').strip()
-    if not model or not year:
-        return "Model and year are required.", 400
-        
-    model = request.args.get('model')
-    year = request.args.get('year')
-    
-    # Example function that returns part listings with the image URL
-    ebay_parts = get_ebay_parts(model, year)
-    
-    # Pass the parts data, including image URLs, to the template
-    return render_template('ebay_modal_content.html', parts=ebay_parts)
-    # Construct search URL for eBay UK with filters: used, sold, under £30
-    query = f"{model} {year} used car parts"
-    search_url = (
-        "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_sop=12&_udhi=30&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
-    )
-    print("🔍 eBay search URL:", search_url)
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Connection": "keep-alive",
-    }
-
-    # Retry logic
-    response = None
-    for attempt in range(3):
-        try:
-            response = requests.get(search_url, headers=headers, timeout=10)
-            response.raise_for_status()
-            break
-        except Exception as e:
-            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
-            time.sleep(2)
-    else:
-        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-    items = soup.select('.s-item')
-
-    part_data = defaultdict(lambda: {"price": "", "link": "", "count": 0})
-
-    for item in items:
-        title_tag = item.select_one('.s-item__title')
-        price_tag = item.select_one('.s-item__price')
-        link_tag = item.select_one('.s-item__link')
-
-        if not title_tag or not price_tag or not link_tag:
-            continue
-
-        title = title_tag.get_text(strip=True)
-        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
-        link = link_tag.get("href")
-
-        try:
-            price = float(price_text)
-        except ValueError:
-            continue
-
-        if price <= 30:
-            if title not in part_data:
-                part_data[title]["price"] = f"£{price:.2f}"
-                part_data[title]["link"] = link
-            part_data[title]["count"] += 1
-
-    if not part_data:
-        return "<p>No results found under £30.</p>"
-
-    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
-    for title, data in part_data.items():
-        html += f"<tr><td>{title}</td><td>{data['price']}</td><td><a href='{data['link']}' target='_blank'>View</a></td><td>{data['count']}</td></tr>"
-    html += "</tbody></table>"
-
-    return render_template_string(html)
-    
-def get_ebay_parts(model, year):
-    # Fetch eBay search results for the part
-    search_url = f'https://www.ebay.com/sch/i.html?_nkw={model}+{year}&_ipg=240'
-    response = requests.get(search_url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    
-    # Find all listings and extract the first image URL for each
-    parts = []
-    for item in soup.find_all('li', class_='s-item'):
-        part = {}
-        part['title'] = item.find('h3', class_='s-item__title').text
-        part['price'] = item.find('span', class_='s-item__price').text
-        part['link'] = item.find('a', class_='s-item__link')['href']
-        part['image_url'] = item.find('img', class_='s-item__image-img')['src']
-        parts.append(part)
-    
-    return parts
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
