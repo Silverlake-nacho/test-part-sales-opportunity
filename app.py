@@ -79,20 +79,6 @@ USERS = {
 last_search_result = None
 search_details = None
 
-def get_matching_google_sheet_rows(engine_code):
-    try:
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
-        client = gspread.authorize(creds)
-        sheet = client.open_by_key('1iH-70OrINA2jcd6YKszW-N8XpuJDTC9A3oArNWHbEeY').sheet1
-        data = sheet.get_all_records()
-        df_sheet = pd.DataFrame(data)
-        filtered = df_sheet[df_sheet['Engine Code'].astype(str).str.contains(engine_code, case=False, na=False)]
-        return filtered.to_dict(orient='records')
-    except Exception as e:
-        print("Error accessing Google Sheets:", e)
-        return []
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
