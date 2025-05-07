@@ -281,7 +281,7 @@ def ebay_small_parts():
     
 def get_ebay_parts(model, year):
     # Fetch eBay search results for the part
-    search_url = f'https://www.ebay.com/sch/i.html?_nkw={model}+{year}&_ipg=240'
+    search_url = f'https://www.ebay.co.uk/sch/i.html?_nkw={model}+{year}&_ipg=240'
     response = requests.get(search_url)
     soup = BeautifulSoup(response.content, 'html.parser')
     
