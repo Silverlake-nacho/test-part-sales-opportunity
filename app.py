@@ -203,7 +203,7 @@ def ebay_small_parts():
     if not model or not year:
         return "Model and year are required.", 400
 
-    # Construct search URL for eBay UK with filters: used, sold, under £20
+    # Construct search URL for eBay UK with filters: used, sold, under £30
     query = f"{model} {year} used car parts"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
@@ -236,19 +236,21 @@ def ebay_small_parts():
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
 
-    part_data = defaultdict(lambda: {"price": "", "link": "", "count": 0})
+    part_data = defaultdict(lambda: {"price": "", "link": "", "thumbnail": "", "count": 0})
 
     for item in items:
         title_tag = item.select_one('.s-item__title')
         price_tag = item.select_one('.s-item__price')
         link_tag = item.select_one('.s-item__link')
+        image_tag = item.select_one('.s-item__image-img')  # ✅ Thumbnail
 
-        if not title_tag or not price_tag or not link_tag:
+        if not title_tag or not price_tag or not link_tag or not image_tag:
             continue
 
         title = title_tag.get_text(strip=True)
         price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
         link = link_tag.get("href")
+        thumbnail_url = image_tag.get("src")
 
         try:
             price = float(price_text)
@@ -259,14 +261,23 @@ def ebay_small_parts():
             if title not in part_data:
                 part_data[title]["price"] = f"£{price:.2f}"
                 part_data[title]["link"] = link
+                part_data[title]["thumbnail"] = thumbnail_url
             part_data[title]["count"] += 1
 
     if not part_data:
         return "<p>No results found under £30.</p>"
 
-    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
+    html = "<table class='table table-striped'><thead><tr><th>Image</th><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
     for title, data in part_data.items():
-        html += f"<tr><td>{title}</td><td>{data['price']}</td><td><a href='{data['link']}' target='_blank'>View</a></td><td>{data['count']}</td></tr>"
+        html += (
+            f"<tr>"
+            f"<td><img src='{data['thumbnail']}' width='60'></td>"
+            f"<td>{title}</td>"
+            f"<td>{data['price']}</td>"
+            f"<td><a href='{data['link']}' target='_blank'>View</a></td>"
+            f"<td>{data['count']}</td>"
+            f"</tr>"
+        )
     html += "</tbody></table>"
 
     return render_template_string(html)
