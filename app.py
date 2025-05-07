@@ -311,8 +311,8 @@ else:
     part['image_url'] = "No image available"  # O cualquier valor por defecto que prefieras
 
 parts.append(part)
-    
-    return parts
+
+return parts
 
 
 if __name__ == '__main__':
