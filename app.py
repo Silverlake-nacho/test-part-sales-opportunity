@@ -146,10 +146,10 @@ def index():
         min_price = request.form.get('min_price')
         min_opportunity = request.form.get('min_opportunity')
 
-        filtered = df[
-            (df['Model'].str.contains(model, case=False, na=False)) &
-            (df['IC Start Year'] <= year) &
-            (df['IC End Year'] >= year)
+        filtered = df[ 
+            (df['Model'].str.contains(model, case=False, na=False)) & 
+            (df['IC Start Year'] <= year) & 
+            (df['IC End Year'] >= year) 
         ]
 
         if engine_code:
@@ -195,23 +195,15 @@ def download():
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
 
-@app.route('/ebay_small_parts', methods=['GET'])
+@app.route('/ebay_small_parts')
 def ebay_small_parts():
     import time
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
     if not model or not year:
         return "Model and year are required.", 400
-        
-    model = request.args.get('model')
-    year = request.args.get('year')
-    
-    # Example function that returns part listings with the image URL
-    ebay_parts = get_ebay_parts(model, year)
-    
-    # Pass the parts data, including image URLs, to the template
-    return render_template('ebay_modal_content.html', parts=ebay_parts)
-    # Construct search URL for eBay UK with filters: used, sold, under £30
+
+    # Construct search URL for eBay UK with filters: used, sold, under £20
     query = f"{model} {year} used car parts"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
@@ -244,19 +236,21 @@ def ebay_small_parts():
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
 
-    part_data = defaultdict(lambda: {"price": "", "link": "", "count": 0})
+    part_data = defaultdict(lambda: {"price": "", "link": "", "image_url": "", "count": 0})
 
     for item in items:
         title_tag = item.select_one('.s-item__title')
         price_tag = item.select_one('.s-item__price')
         link_tag = item.select_one('.s-item__link')
+        image_tag = item.select_one('.s-item__image-img')
 
-        if not title_tag or not price_tag or not link_tag:
+        if not title_tag or not price_tag or not link_tag or not image_tag:
             continue
 
         title = title_tag.get_text(strip=True)
         price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
         link = link_tag.get("href")
+        image_url = image_tag.get("src")
 
         try:
             price = float(price_text)
@@ -267,52 +261,18 @@ def ebay_small_parts():
             if title not in part_data:
                 part_data[title]["price"] = f"£{price:.2f}"
                 part_data[title]["link"] = link
+                part_data[title]["image_url"] = image_url
             part_data[title]["count"] += 1
 
     if not part_data:
         return "<p>No results found under £30.</p>"
 
-    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
+    html = "<table class='table table-striped'><thead><tr><th>Thumbnail</th><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
     for title, data in part_data.items():
-        html += f"<tr><td>{title}</td><td>{data['price']}</td><td><a href='{data['link']}' target='_blank'>View</a></td><td>{data['count']}</td></tr>"
+        html += f"<tr><td><img src='{data['image_url']}' alt='Thumbnail' width='100'></td><td>{title}</td><td>{data['price']}</td><td><a href='{data['link']}' target='_blank'>View</a></td><td>{data['count']}</td></tr>"
     html += "</tbody></table>"
 
     return render_template_string(html)
-    
-def get_ebay_parts(model, year):
-    # Fetch eBay search results for the part
-    search_url = f'https://www.ebay.co.uk/sch/i.html?_nkw={model}+{year}&_ipg=240'
-    response = requests.get(search_url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    
-    # Find all listings and extract the first image URL for each
-    parts = []
-    for item in soup.find_all('li', class_='s-item'):
-        part = {}
-    part_title_element = item.find('h3', class_='s-item__title')
-    if part_title_element:
-        part['title'] = part_title_element.text
-    else:
-        part['title'] = "No title available"  # O cualquier valor por defecto que prefieras
-    part_price_element = item.find('span', class_='s-item__price')
-    if part_price_element:
-        part['price'] = part_price_element.text
-    else:
-        part['price'] = "No price available"  # O cualquier valor por defecto que prefieras
-    part_link_element = item.find('a', class_='s-item__link')
-    if part_link_element:
-        part['link'] = part_link_element['href']
-    else:
-        part['link'] = "No link available"  # O cualquier valor por defecto que prefieras
-    part_image_element = item.find('img', class_='s-item__image-img')
-    if part_image_element:
-        part['image_url'] = part_image_element['src']
-    else:
-        part['image_url'] = "No image available"  # O cualquier valor por defecto que prefieras
-
-    parts.append(part)
-
-    return parts
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
