@@ -312,8 +312,7 @@ def get_ebay_parts(model, year):
 
     parts.append(part)
 
-return parts
-
+    return parts
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
