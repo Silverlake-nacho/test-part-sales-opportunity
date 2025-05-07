@@ -306,9 +306,10 @@ else:
     part['link'] = "No link available"  # O cualquier valor por defecto que prefieras
 part_image_element = item.find('img', class_='s-item__image-img')
 if part_image_element:
-part['image_url'] = part_image_element['src']
+    part['image_url'] = part_image_element['src']
 else:
     part['image_url'] = "No image available"  # O cualquier valor por defecto que prefieras
+
         parts.append(part)
     
     return parts
