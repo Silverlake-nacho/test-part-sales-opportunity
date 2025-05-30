@@ -128,7 +128,7 @@ def index():
         min_opportunity = request.form.get('min_opportunity')
 
         filtered = df[
-            (df['Model'].str.contains(model, case=False, na=False)) &
+            (df['Model'].str.lower() == model.lower()) &
             (df['IC Start Year'] <= year) &
             (df['IC End Year'] >= year)
         ]
