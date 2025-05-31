@@ -157,6 +157,10 @@ def index():
 
         if not filtered.empty:
             filtered = filtered.copy()
+            # ✅ Convert key columns to numeric
+            numeric_cols = ['Backorders', 'Not Found 180 days', 'B Price', 'Parts in Stock', 'Parts Sold All']
+            for col in numeric_cols:
+                filtered[col] = pd.to_numeric(filtered[col], errors='coerce').fillna(0)
             filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
             filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
             filtered['Opportunity_Score'] = filtered['Potential_Profit'] * filtered['Sales_Speed']
