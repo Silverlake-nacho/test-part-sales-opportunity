@@ -150,8 +150,9 @@ def index():
 
         if engine_code:
             def custom_filter(row):
-                description = str(row['IC Description'])
-                return engine_code.lower() in description.lower()
+                description = str(row['IC Description']).lower()
+                return 'engine code' in description and engine_code.lower() in description
+
 
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
