@@ -135,6 +135,7 @@ def index():
     global last_search_result, search_details
     parts = None
     google_sheet_matches = []
+
     if request.method == 'POST':
         model = request.form['model']
         year = int(request.form['year'])
@@ -142,57 +143,56 @@ def index():
         min_price = request.form.get('min_price')
         min_opportunity = request.form.get('min_opportunity')
 
+        # Filter by model and year
         filtered = df[
             (df['Model'].str.lower() == model.lower()) &
             (df['IC Start Year'] <= year) &
             (df['IC End Year'] >= year)
         ]
 
-        if engine_code:
-            def custom_filter(row):
-                description = str(row['IC Description']).lower()
-                return 'engine code' in description and engine_code.lower() in description
-
-
-            filtered = filtered[filtered.apply(custom_filter, axis=1)]
-
         if not filtered.empty:
             filtered = filtered.copy()
 
+            # Engine code filtering logic
             if engine_code:
                 def custom_filter(row):
                     description = str(row['IC Description']).lower()
                     if 'engine code' in description:
                         return engine_code.lower() in description
-                    return True  # keep all rows that don't mention 'engine code'
+                    return True  # keep rows that don't mention 'engine code'
 
                 filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
-        numeric_cols = ['Backorders', 'Not Found 180 days', 'B Price', 'Parts in Stock', 'Parts Sold All']
-        for col in numeric_cols:
-            filtered[col] = pd.to_numeric(filtered[col], errors='coerce').fillna(0)
+            # Convert numeric fields safely
+            numeric_cols = ['Backorders', 'Not Found 180 days', 'B Price', 'Parts in Stock', 'Parts Sold All']
+            for col in numeric_cols:
+                filtered[col] = pd.to_numeric(filtered[col], errors='coerce').fillna(0)
 
-        filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
-        filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
-        filtered['Opportunity_Score'] = filtered['Potential_Profit'] * filtered['Sales_Speed']
+            # Compute calculated fields
+            filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
+            filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
+            filtered['Opportunity_Score'] = filtered['Potential_Profit'] * filtered['Sales_Speed']
 
-        if min_price:
-            filtered = filtered[filtered['B Price'] >= float(min_price)]
-        if min_opportunity:
-            filtered = filtered[filtered['Opportunity_Score'] >= float(min_opportunity)]
+            if min_price:
+                filtered = filtered[filtered['B Price'] >= float(min_price)]
 
-        parts = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders',
-                          'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
-        parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
-        
-        last_search_result = parts
-        search_details = {'model': model, 'year': year, 'engine_code': engine_code}
-        parts = parts.to_dict('records')
+            if min_opportunity:
+                filtered = filtered[filtered['Opportunity_Score'] >= float(min_opportunity)]
 
+            parts = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders',
+                              'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
+            parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
+
+            last_search_result = parts
+            search_details = {'model': model, 'year': year, 'engine_code': engine_code}
+            parts = parts.to_dict('records')
+
+        # Lookup in Google Sheet
         if engine_code:
             google_sheet_matches = get_matching_google_sheet_rows(engine_code)
 
-        return render_template('index.html', parts=parts, search_details=search_details, google_sheet_matches=google_sheet_matches)
+    return render_template('index.html', parts=parts, search_details=search_details, google_sheet_matches=google_sheet_matches)
+
 
 @app.route('/download')
 def download():
