@@ -124,11 +124,22 @@ def require_login():
 @app.route('/autocomplete_model', methods=['GET'])
 def autocomplete_model():
     query = request.args.get('query', '')
+    print(f"/autocomplete_model called with query: '{query}'")
+    print(f"DataFrame columns: {df.columns.tolist()}")
     if query:
+        if 'Model' not in df.columns:
+            print("ERROR: 'Model' column not found in dataframe!")
+            return {'models': []}
+
         filtered_models = df['Model'].dropna().unique()
         matches = [model for model in filtered_models if query.lower() in model.lower()]
+        print(f"Matches found: {matches}")
         return {'models': matches}
     return {'models': []}
+    
+@app.route('/test_df')
+def test_df():
+    return f"DF shape: {df.shape}, columns: {df.columns.tolist()}"
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
