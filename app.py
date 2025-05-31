@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file, redirect, url_for, session, render_template_string
+from flask import Flask, request, render_template, send_file, redirect, url_for, session
 import pandas as pd
 from io import BytesIO
 from datetime import datetime, timedelta
@@ -6,27 +6,11 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+
 import requests
 from bs4 import BeautifulSoup
+from flask import request, render_template_string
 from collections import defaultdict
-
-# Load WebFleet data from Google Sheets
-def load_webfleet_from_google_sheet():
-    try:
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
-        client = gspread.authorize(creds)
-
-        sheet = client.open_by_key('1tsC3u68FbojBmdovaz_IQOtroA_dNRpT8v6qtSfBh48')
-        worksheet = sheet.get_worksheet(0)  # First sheet
-        data = worksheet.get_all_records()
-        df = pd.DataFrame(data)
-        return df
-    except Exception as e:
-        print("Error loading WebFleet Google Sheet:", e)
-        return pd.DataFrame()
-
-df = load_webfleet_from_google_sheet()
 
 def rgb_to_hex(rgb):
     r = int(rgb.get('red', 1) * 255)
@@ -55,6 +39,7 @@ def get_matching_google_sheet_rows(engine_code):
         ).execute()
 
         row_data = format_result['sheets'][0]['data'][0]['rowData']
+
         headers = values[0]
         rows = []
 
@@ -62,10 +47,7 @@ def get_matching_google_sheet_rows(engine_code):
             row_dict = {}
             for j, cell in enumerate(row):
                 cell_text = cell
-                try:
-                    bg_color = row_data[i]['values'][j].get('effectiveFormat', {}).get('backgroundColor', {})
-                except (IndexError, KeyError):
-                    bg_color = {}
+                bg_color = row_data[i]['values'][j].get('effectiveFormat', {}).get('backgroundColor', {})
                 hex_color = rgb_to_hex(bg_color)
                 key = headers[j]
                 row_dict[key] = {'value': cell_text, 'bg': hex_color}
@@ -77,6 +59,9 @@ def get_matching_google_sheet_rows(engine_code):
     except Exception as e:
         print("Error accessing Google Sheets:", e)
         return []
+
+file_path = 'WebFleet.csv'
+df = pd.read_csv(file_path)
 
 app = Flask(__name__)
 app.secret_key = 'your_super_secret_key_here'
@@ -124,27 +109,17 @@ def require_login():
 @app.route('/autocomplete_model', methods=['GET'])
 def autocomplete_model():
     query = request.args.get('query', '')
-    print(f"/autocomplete_model called with query: '{query}'")
-    print(f"DataFrame columns: {df.columns.tolist()}")
-
-    if query and 'Model' in df.columns:
+    if query:
         filtered_models = df['Model'].dropna().unique()
-        matches = [str(model) for model in filtered_models if query.lower() in str(model).lower()]
-        print(f"Matches found: {matches}")
+        matches = [model for model in filtered_models if query.lower() in model.lower()]
         return {'models': matches}
-
     return {'models': []}
-    
-@app.route('/test_df')
-def test_df():
-    return f"DF shape: {df.shape}, columns: {df.columns.tolist()}"
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     global last_search_result, search_details
     parts = None
     google_sheet_matches = []
-
     if request.method == 'POST':
         model = request.form['model']
         year = int(request.form['year'])
@@ -152,63 +127,46 @@ def index():
         min_price = request.form.get('min_price')
         min_opportunity = request.form.get('min_opportunity')
 
-        # Filter by model and year
         filtered = df[
             (df['Model'].str.lower() == model.lower()) &
             (df['IC Start Year'] <= year) &
             (df['IC End Year'] >= year)
         ]
 
+        if engine_code:
+            def custom_filter(row):
+                description = str(row['IC Description'])
+                if 'engine code' in description.lower():
+                    return engine_code.lower() in description.lower()
+                return True
+
+            filtered = filtered[filtered.apply(custom_filter, axis=1)]
+
         if not filtered.empty:
-            filtered = filtered.copy()
-
-            # Engine code filtering logic
-            if engine_code:
-                def custom_filter(row):
-                    description = str(row['IC Description']).lower()
-                    if 'engine code' in description:
-                        return engine_code.lower() in description
-                    return True  # keep rows that don't mention 'engine code'
-
-                filtered = filtered[filtered.apply(custom_filter, axis=1)]
-
-            # Convert numeric fields safely
-            numeric_cols = ['Backorders', 'Not Found 180 days', 'B Price', 'Parts in Stock', 'Parts Sold All']
-            for col in numeric_cols:
-                filtered[col] = pd.to_numeric(filtered[col], errors='coerce').fillna(0)
-
-            # Compute calculated fields
             filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
             filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
             filtered['Opportunity_Score'] = filtered['Potential_Profit'] * filtered['Sales_Speed']
 
             if min_price:
                 filtered = filtered[filtered['B Price'] >= float(min_price)]
-
             if min_opportunity:
                 filtered = filtered[filtered['Opportunity_Score'] >= float(min_opportunity)]
 
             parts = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders',
                               'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
             parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
-
             last_search_result = parts
             search_details = {'model': model, 'year': year, 'engine_code': engine_code}
             parts = parts.to_dict('records')
 
-        # Lookup in Google Sheet
         if engine_code:
             google_sheet_matches = get_matching_google_sheet_rows(engine_code)
 
     return render_template('index.html', parts=parts, search_details=search_details, google_sheet_matches=google_sheet_matches)
 
-
 @app.route('/download')
 def download():
     global last_search_result
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-
     if last_search_result is not None:
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -219,7 +177,7 @@ def download():
 
 @app.route('/ebay_small_parts')
 def ebay_small_parts():
-    import time, re
+    import time
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
     if not model or not year:
@@ -230,69 +188,69 @@ def ebay_small_parts():
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
         "&_sop=12&_udhi=50&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
     )
-    print("🔍 Searching eBay:", search_url)
+    print("\U0001F50D eBay search URL:", search_url)
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
     }
 
-    try:
-        for attempt in range(3):
-            try:
-                response = requests.get(search_url, headers=headers, timeout=10)
-                response.raise_for_status()
-                break
-            except Exception as e:
-                print(f"eBay fetch attempt {attempt + 1} failed: {e}")
-                time.sleep(2)
-        else:
-            return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
+    response = None
+    for attempt in range(3):
+        try:
+            response = requests.get(search_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            break
+        except Exception as e:
+            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
+            time.sleep(2)
+    else:
+        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
 
-        soup = BeautifulSoup(response.text, 'html.parser')
-        items = soup.select('.s-item')
+    soup = BeautifulSoup(response.text, 'html.parser')
+    items = soup.select('.s-item')
 
-        part_list = []
-        for item in items:
-            title_tag = item.select_one('.s-item__title')
-            price_tag = item.select_one('.s-item__price')
-            link_tag = item.select_one('.s-item__link')
+    part_list = []
 
-            if not title_tag or not price_tag or not link_tag:
-                continue
+    for item in items:
+        title_tag = item.select_one('.s-item__title')
+        price_tag = item.select_one('.s-item__price')
+        link_tag = item.select_one('.s-item__link')
 
-            title = title_tag.get_text(strip=True)
-            price_text = price_tag.get_text(strip=True)
-            link = link_tag.get("href")
+        if not title_tag or not price_tag or not link_tag:
+            continue
 
-            match = re.search(r'(\d+(\.\d{1,2})?)', price_text.replace(",", ""))
-            if not match:
-                continue
-            price = float(match.group(1))
+        title = title_tag.get_text(strip=True)
+        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
+        link = link_tag.get("href")
 
-            if price <= 50:
-                part_list.append({
-                    "title": title,
-                    "price": price,
-                    "link": link
-                })
+        try:
+            price = float(price_text)
+        except ValueError:
+            continue
 
-        if not part_list:
-            return "<p>No results found under £50.</p>"
+        if price <= 50:
+            part_list.append({
+                "title": title,
+                "price": price,
+                "link": link
+            })
 
-        part_list.sort(key=lambda x: x["price"], reverse=True)
+    if not part_list:
+        return "<p>No results found under £50.</p>"
 
-        html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
-        for part in part_list:
-            html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
-        html += "</tbody></table>"
+    part_list.sort(key=lambda x: x["price"], reverse=True)
 
-        return render_template_string(html)
+    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
+    for part in part_list:
+        html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
+    html += "</tbody></table>"
 
-    except Exception as e:
-        print("❌ Unexpected error in /ebay_small_parts:", e)
-        return "<p><strong>Error loading data.</strong></p>"
-
+    return render_template_string(html)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
