@@ -126,15 +126,13 @@ def autocomplete_model():
     query = request.args.get('query', '')
     print(f"/autocomplete_model called with query: '{query}'")
     print(f"DataFrame columns: {df.columns.tolist()}")
-    if query:
-        if 'Model' not in df.columns:
-            print("ERROR: 'Model' column not found in dataframe!")
-            return {'models': []}
 
+    if query and 'Model' in df.columns:
         filtered_models = df['Model'].dropna().unique()
-        matches = [model for model in filtered_models if query.lower() in model.lower()]
+        matches = [str(model) for model in filtered_models if query.lower() in str(model).lower()]
         print(f"Matches found: {matches}")
         return {'models': matches}
+
     return {'models': []}
     
 @app.route('/test_df')
