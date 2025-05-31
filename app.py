@@ -210,7 +210,7 @@ def download():
 
 @app.route('/ebay_small_parts')
 def ebay_small_parts():
-    import time
+    import time, re
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
     if not model or not year:
@@ -225,11 +225,7 @@ def ebay_small_parts():
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Connection": "keep-alive",
+                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
 
     try:
@@ -244,51 +240,50 @@ def ebay_small_parts():
         else:
             return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
 
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('.s-item')
 
-    soup = BeautifulSoup(response.text, 'html.parser')
-    items = soup.select('.s-item')
+        part_list = []
+        for item in items:
+            title_tag = item.select_one('.s-item__title')
+            price_tag = item.select_one('.s-item__price')
+            link_tag = item.select_one('.s-item__link')
 
-    part_list = []
+            if not title_tag or not price_tag or not link_tag:
+                continue
 
-    for item in items:
-        title_tag = item.select_one('.s-item__title')
-        price_tag = item.select_one('.s-item__price')
-        link_tag = item.select_one('.s-item__link')
+            title = title_tag.get_text(strip=True)
+            price_text = price_tag.get_text(strip=True)
+            link = link_tag.get("href")
 
-        if not title_tag or not price_tag or not link_tag:
-            continue
+            match = re.search(r'(\d+(\.\d{1,2})?)', price_text.replace(",", ""))
+            if not match:
+                continue
+            price = float(match.group(1))
 
-        title = title_tag.get_text(strip=True)
-        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
-        link = link_tag.get("href")
+            if price <= 50:
+                part_list.append({
+                    "title": title,
+                    "price": price,
+                    "link": link
+                })
 
-        try:
-            price = float(price_text)
-        except ValueError:
-            continue
+        if not part_list:
+            return "<p>No results found under £50.</p>"
 
-        if price <= 50:
-            part_list.append({
-                "title": title,
-                "price": price,
-                "link": link
-            })
+        part_list.sort(key=lambda x: x["price"], reverse=True)
 
-    if not part_list:
-        return "<p>No results found under £50.</p>"
+        html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
+        for part in part_list:
+            html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
+        html += "</tbody></table>"
 
-    part_list.sort(key=lambda x: x["price"], reverse=True)
+        return render_template_string(html)
 
-    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
-    for part in part_list:
-        html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
-    html += "</tbody></table>"
-
-    return render_template_string(html)
-    
-except Exception as e:
+    except Exception as e:
         print("❌ Unexpected error in /ebay_small_parts:", e)
         return "<p><strong>Error loading data.</strong></p>"
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
