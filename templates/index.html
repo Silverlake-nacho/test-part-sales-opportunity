@@ -143,21 +143,26 @@
 	      
       </table>
       {% endif %}
-	    {% if google_sheet_matches %}
+      {% if google_sheet_matches %}
 <h2 class="mt-5">Google Sheet Matches for Engine Code</h2>
 <table class="table table-striped mt-3">
+   {% set excluded_keys = ['Spain', 'QTY'] %}
   <thead>
     <tr>
       {% for key in google_sheet_matches[0].keys() %}
-      <th>{{ key }}</th>
+        {% if key not in excluded_keys %}
+         <th>{{ key }}</th>
+        {% endif %}
       {% endfor %}
     </tr>
   </thead>
   <tbody>
     {% for row in google_sheet_matches %}
     <tr>
-      {% for value in row.values() %}
-      <td>{{ value }}</td>
+      {% for cell in row.values() %}
+       {% if key not in excluded_keys %}
+         <td style="background-color: {{ cell.bg }}">{{ cell.value }}</td>
+       {% endif %}
       {% endfor %}
     </tr>
     {% endfor %}
