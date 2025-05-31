@@ -176,22 +176,23 @@ def index():
         filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
         filtered['Opportunity_Score'] = filtered['Potential_Profit'] * filtered['Sales_Speed']
 
-            if min_price:
-                filtered = filtered[filtered['B Price'] >= float(min_price)]
-            if min_opportunity:
-                filtered = filtered[filtered['Opportunity_Score'] >= float(min_opportunity)]
+        if min_price:
+            filtered = filtered[filtered['B Price'] >= float(min_price)]
+        if min_opportunity:
+            filtered = filtered[filtered['Opportunity_Score'] >= float(min_opportunity)]
 
-            parts = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders',
-                              'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
-            parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
-            last_search_result = parts
-            search_details = {'model': model, 'year': year, 'engine_code': engine_code}
-            parts = parts.to_dict('records')
+         parts = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders',
+                            'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
+        parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
+        
+        last_search_result = parts
+        search_details = {'model': model, 'year': year, 'engine_code': engine_code}
+        parts = parts.to_dict('records')
 
         if engine_code:
             google_sheet_matches = get_matching_google_sheet_rows(engine_code)
 
-    return render_template('index.html', parts=parts, search_details=search_details, google_sheet_matches=google_sheet_matches)
+        return render_template('index.html', parts=parts, search_details=search_details, google_sheet_matches=google_sheet_matches)
 
 @app.route('/download')
 def download():
