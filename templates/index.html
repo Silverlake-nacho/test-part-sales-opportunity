@@ -159,7 +159,7 @@
   <tbody>
     {% for row in google_sheet_matches %}
     <tr>
-      {% for cell in row.values() %}
+      {% for cell in row.items() %}
        {% if key not in excluded_keys %}
          <td style="background-color: {{ cell.bg }}">{{ cell.value }}</td>
        {% endif %}
