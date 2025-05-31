@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file, redirect, url_for, session
+from flask import Flask, request, render_template, send_file, redirect, url_for, session, render_template_string
 import pandas as pd
 from io import BytesIO
 from datetime import datetime, timedelta
@@ -6,11 +6,27 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-
 import requests
 from bs4 import BeautifulSoup
-from flask import request, render_template_string
 from collections import defaultdict
+
+# Load WebFleet data from Google Sheets
+def load_webfleet_from_google_sheet():
+    try:
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+        client = gspread.authorize(creds)
+
+        sheet = client.open_by_key('1tsC3u68FbojBmdovaz_IQOtroA_dNRpT8v6qtSfBh48')
+        worksheet = sheet.get_worksheet(0)  # First sheet
+        data = worksheet.get_all_records()
+        df = pd.DataFrame(data)
+        return df
+    except Exception as e:
+        print("Error loading WebFleet Google Sheet:", e)
+        return pd.DataFrame()
+
+df = load_webfleet_from_google_sheet()
 
 def rgb_to_hex(rgb):
     r = int(rgb.get('red', 1) * 255)
@@ -39,7 +55,6 @@ def get_matching_google_sheet_rows(engine_code):
         ).execute()
 
         row_data = format_result['sheets'][0]['data'][0]['rowData']
-
         headers = values[0]
         rows = []
 
@@ -47,7 +62,10 @@ def get_matching_google_sheet_rows(engine_code):
             row_dict = {}
             for j, cell in enumerate(row):
                 cell_text = cell
-                bg_color = row_data[i]['values'][j].get('effectiveFormat', {}).get('backgroundColor', {})
+                try:
+                    bg_color = row_data[i]['values'][j].get('effectiveFormat', {}).get('backgroundColor', {})
+                except (IndexError, KeyError):
+                    bg_color = {}
                 hex_color = rgb_to_hex(bg_color)
                 key = headers[j]
                 row_dict[key] = {'value': cell_text, 'bg': hex_color}
@@ -59,9 +77,6 @@ def get_matching_google_sheet_rows(engine_code):
     except Exception as e:
         print("Error accessing Google Sheets:", e)
         return []
-
-file_path = 'WebFleet.csv'
-df = pd.read_csv(file_path)
 
 app = Flask(__name__)
 app.secret_key = 'your_super_secret_key_here'
@@ -136,13 +151,12 @@ def index():
         if engine_code:
             def custom_filter(row):
                 description = str(row['IC Description'])
-                if 'engine code' in description.lower():
-                    return engine_code.lower() in description.lower()
-                return True
+                return engine_code.lower() in description.lower()
 
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
         if not filtered.empty:
+            filtered = filtered.copy()
             filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
             filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
             filtered['Opportunity_Score'] = filtered['Potential_Profit'] * filtered['Sales_Speed']
@@ -167,6 +181,9 @@ def index():
 @app.route('/download')
 def download():
     global last_search_result
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
     if last_search_result is not None:
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -191,12 +208,8 @@ def ebay_small_parts():
     print("\U0001F50D eBay search URL:", search_url)
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "User-Agent": "Mozilla/5.0",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Connection": "keep-alive",
     }
 
     response = None
