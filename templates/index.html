@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Silverlake Part Sales Opportunity Finder</title>
+    <title>Test Silverlake Part Sales Opportunity Finder</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
@@ -60,11 +60,10 @@
   </head>
   <body class="p-4">
     <div class="container">
-	<div class="logo">
+      <div class="logo">
         <img src="{{ url_for('static', filename='logo-slg-strip.svg') }}" alt="Silverlake Logo">
       </div>
 
-      <!-- Navbar -->
       <nav class="navbar navbar-expand-lg navbar-dark mb-4" style="background-color: #5c9c13; border-radius: 10px;">
         <div class="container-fluid">
           <a class="navbar-brand" href="#">
@@ -108,10 +107,8 @@
         {% if parts %}
           <a href="/download" class="btn btn-success ms-2">Download Excel</a>
         {% endif %}
-      
-<button type="button" class="btn btn-warning ms-2" id="ebayButton">eBay Small Parts</button>
-
-</form>
+        <button type="button" class="btn btn-warning ms-2" id="ebayButton">eBay Small Parts</button>
+      </form>
 
       {% if search_details %}
       <h2 class="mt-5">Top Parts for {{ search_details.model }} (Year {{ search_details.year }}) {% if search_details.engine_code %} Engine: {{ search_details.engine_code }} {% endif %}</h2>
@@ -140,37 +137,35 @@
           </tr>
         {% endfor %}
         </tbody>
-	      
       </table>
       {% endif %}
-      {% if google_sheet_matches %}
-<h2 class="mt-5">Google Sheet Matches for Engine Code</h2>
-<table class="table table-striped mt-3">
-   {% set excluded_keys = ['Spain', 'QTY'] %}
-  <thead>
-    <tr>
-      {% for key in google_sheet_matches[0].keys() %}
-        {% if key not in excluded_keys %}
-         <th>{{ key }}</th>
-        {% endif %}
-      {% endfor %}
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in google_sheet_matches %}
-    <tr>
-      {% for cell in row.values() %}
-       {% if key not in excluded_keys %}
-         <td style="background-color: {{ cell.bg }}">{{ cell.value }}</td>
-       {% endif %}
-      {% endfor %}
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% endif %}
-	    
 
+      {% if google_sheet_matches %}
+      <h2 class="mt-5">Google Sheet Matches for Engine Code</h2>
+      <table class="table table-striped mt-3">
+        {% set excluded_keys = ['Spain', 'QTY'] %}
+        <thead>
+          <tr>
+            {% for key in google_sheet_matches[0].keys() %}
+              {% if key not in excluded_keys %}
+                <th>{{ key }}</th>
+              {% endif %}
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in google_sheet_matches %}
+          <tr>
+            {% for key, cell in row.items() %}
+              {% if key not in excluded_keys %}
+                <td style="background-color: {{ cell.bg }}">{{ cell.value }}</td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
     </div>
 
     <script>
@@ -208,7 +203,6 @@
           }
         });
 
-        // Initialize DataTables with per-column search without replacing headers
         var table = $('#parts-table').DataTable({
           pageLength: 25,
           order: [],
@@ -226,54 +220,47 @@
             });
           }
         });
+
+        $('#ebayButton').on('click', function() {
+          const model = $('input[name="model"]').val().trim();
+          const year = $('input[name="year"]').val().trim();
+          if (!model || !year) {
+            alert("Please enter both model and year first.");
+            return;
+          }
+
+          $('#ebayModalBody').html('<p>Loading...</p>');
+          $('#ebayModal').modal('show');
+
+          $.ajax({
+            url: '/ebay_small_parts',
+            method: 'GET',
+            data: { model: model, year: year },
+            success: function(data) {
+              $('#ebayModalBody').html(data);
+            },
+            error: function() {
+              $('#ebayModalBody').html('<p>Error loading eBay data.</p>');
+            }
+          });
+        });
       });
     </script>
 
-  
-<!-- Modal -->
-<div class="modal fade" id="ebayModal" tabindex="-1" aria-labelledby="ebayModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="ebayModalLabel">eBay Small Parts Lookup</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body" id="ebayModalBody">
-        <p>Loading...</p>
+    <div class="modal fade" id="ebayModal" tabindex="-1" aria-labelledby="ebayModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ebayModalLabel">eBay Small Parts Lookup</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="ebayModalBody">
+            <p>Loading...</p>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-</body>
-
-<script>
-  $(document).ready(function() {
-    $('#ebayButton').on('click', function() {
-      const model = $('input[name="model"]').val().trim();
-      const year = $('input[name="year"]').val().trim();
-      if (!model || !year) {
-        alert("Please enter both model and year first.");
-        return;
-      }
-
-      $('#ebayModalBody').html('<p>Loading...</p>');
-      $('#ebayModal').modal('show');
-
-      $.ajax({
-        url: '/ebay_small_parts',
-        method: 'GET',
-        data: { model: model, year: year },
-        success: function(data) {
-          $('#ebayModalBody').html(data);
-        },
-        error: function() {
-          $('#ebayModalBody').html('<p>Error loading data.</p>');
-        }
-      });
-    });
-  });
-</script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
 </html>
