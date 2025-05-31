@@ -161,7 +161,7 @@
     <tr>
       {% for cell in row.items() %}
        {% if key not in excluded_keys %}
-         <td style="background-color: {{ cell.bg }}">{{ cell.value }}</td>
+         <td {{ cell }}</td>
        {% endif %}
       {% endfor %}
     </tr>
