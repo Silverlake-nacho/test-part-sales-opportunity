@@ -146,7 +146,7 @@
       {% if google_sheet_matches %}
 <h2 class="mt-5">Google Sheet Matches for Engine Code</h2>
 <table class="table table-striped mt-3">
-   {% set excluded_keys = ['Spain'] %}
+   {% set excluded_keys = ['Spain', 'QTY'] %}
   <thead>
     <tr>
       {% for key in google_sheet_matches[0].keys() %}
