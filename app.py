@@ -221,24 +221,29 @@ def ebay_small_parts():
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
         "&_sop=12&_udhi=50&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
     )
-    print("\U0001F50D eBay search URL:", search_url)
+    print("🔍 Searching eBay:", search_url)
 
     headers = {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
     }
 
-    response = None
-    for attempt in range(3):
-        try:
-            response = requests.get(search_url, headers=headers, timeout=10)
-            response.raise_for_status()
-            break
-        except Exception as e:
-            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
-            time.sleep(2)
-    else:
-        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
+    try:
+        for attempt in range(3):
+            try:
+                response = requests.get(search_url, headers=headers, timeout=10)
+                response.raise_for_status()
+                break
+            except Exception as e:
+                print(f"eBay fetch attempt {attempt + 1} failed: {e}")
+                time.sleep(2)
+        else:
+            return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
+
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
@@ -280,6 +285,10 @@ def ebay_small_parts():
     html += "</tbody></table>"
 
     return render_template_string(html)
+    
+except Exception as e:
+        print("❌ Unexpected error in /ebay_small_parts:", e)
+        return "<p><strong>Error loading data.</strong></p>
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
