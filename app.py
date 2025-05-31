@@ -288,7 +288,7 @@ def ebay_small_parts():
     
 except Exception as e:
         print("❌ Unexpected error in /ebay_small_parts:", e)
-        return "<p><strong>Error loading data.</strong></p>
+        return "<p><strong>Error loading data.</strong></p>"
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
