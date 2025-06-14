@@ -236,7 +236,7 @@
   <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="ebayModalLabelS">eBay Small Parts Lookup</h5>
+        <h5 class="modal-title" id="ebayModalLabelS">eBay Small Parts Lookup below £50</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="ebayModalBodyS">
@@ -282,7 +282,7 @@
   <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="ebayModalLabelM">eBay Medium Parts Lookup</h5>
+        <h5 class="modal-title" id="ebayModalLabelM">eBay Medium Parts Lookup between £50 to £500</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="ebayModalBodyM">
@@ -321,5 +321,51 @@
     });
   });
 </script>
+
+<!-- Modal eBay Large Parts-->
+<div class="modal fade" id="ebayModalL" tabindex="-1" aria-labelledby="ebayModalLabelL" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="ebayModalLabelL">eBay Large Parts Lookup Over £500</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="ebayModalBodyL">
+        <p>Loading...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+
+<script>
+  $(document).ready(function() {
+    $('#ebayButtonS').on('click', function() {
+      const model = $('input[name="model"]').val().trim();
+      const year = $('input[name="year"]').val().trim();
+      if (!model || !year) {
+        alert("Please enter both model and year first.");
+        return;
+      }
+
+      $('#ebayModalBodyL').html('<p>Loading...</p>');
+      $('#ebayModalL').modal('show');
+
+      $.ajax({
+        url: '/ebay_small_parts',
+        method: 'GET',
+        data: { model: model, year: year },
+        success: function(data) {
+          $('#ebayModalBodyL').html(data);
+        },
+        error: function() {
+          $('#ebayModalBodyL').html('<p>Error loading data.</p>');
+        }
+      });
+    });
+  });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 </html>
