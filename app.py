@@ -263,7 +263,7 @@ def ebay_small_parts():
   <div class='tab-pane fade' id='over' role='tabpanel'>{table_html(over_500)}</div>
 </div>
     """
-return render_template_string(tabbed_html)
+    return render_template_string(tabbed_html)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
