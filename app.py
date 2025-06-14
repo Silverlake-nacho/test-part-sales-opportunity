@@ -312,7 +312,7 @@ def ebay_medium_parts():
         except ValueError:
             continue
 
-        if price > 50 and <= 500:
+        if price > 50 and price <= 500:
             part_list.append({
                 "title": title,
                 "price": price,
