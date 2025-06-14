@@ -111,6 +111,7 @@
       
 <button type="button" class="btn btn-warning ms-2" id="ebayButtonS">eBay Small Parts</button>
 <button type="button" class="btn btn-warning ms-2" id="ebayButtonM">eBay Medium Parts</button>
+<button type="button" class="btn btn-warning ms-2" id="ebayButtonL">eBay Large Parts</button>
 
 </form>
 
@@ -341,7 +342,7 @@
 
 <script>
   $(document).ready(function() {
-    $('#ebayButtonS').on('click', function() {
+    $('#ebayButtonL').on('click', function() {
       const model = $('input[name="model"]').val().trim();
       const year = $('input[name="year"]').val().trim();
       if (!model || !year) {
