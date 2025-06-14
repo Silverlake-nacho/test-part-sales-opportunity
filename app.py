@@ -95,7 +95,7 @@ def logout():
 
 @app.before_request
 def require_login():
-    allowed_routes = ['login', 'static', 'autocomplete_model']
+    allowed_routes = ['login', 'static', 'autocomplete_model', 'ebay_small_parts']
     if request.endpoint not in allowed_routes and not session.get('logged_in'):
         return redirect(url_for('login'))
     if session.get('logged_in'):
@@ -122,7 +122,11 @@ def index():
     google_sheet_matches = []
     if request.method == 'POST':
         model = request.form['model']
-        year = int(request.form['year'])
+        try:
+            year = int(request.form['year'])
+        except (ValueError, TypeError):
+            return render_template('index.html', error="Invalid year", parts=None, google_sheet_matches=[])
+
         engine_code = request.form.get('engine_code', '').strip()
         min_price = request.form.get('min_price')
         min_opportunity = request.form.get('min_opportunity')
@@ -131,7 +135,7 @@ def index():
             (df['Model'].str.lower() == model.lower()) &
             (df['IC Start Year'] <= year) &
             (df['IC End Year'] >= year)
-        ]
+        ].copy()
 
         if engine_code:
             def custom_filter(row):
@@ -180,7 +184,7 @@ def ebay_small_parts():
     import time
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
-    range_type = request.args.get('range', 'under50')  # new
+    range_type = request.args.get('range', 'under50')
 
     if not model or not year:
         return "Model and year are required.", 400
@@ -230,7 +234,6 @@ def ebay_small_parts():
         except ValueError:
             continue
 
-        # Filter based on requested range
         if range_type == 'under50' and price <= 50:
             part_list.append({"title": title, "price": price, "link": link})
         elif range_type == 'fifty500' and 50 < price <= 500:
@@ -249,7 +252,6 @@ def ebay_small_parts():
     html += "</tbody></table>"
 
     return render_template_string(html)
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
