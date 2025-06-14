@@ -181,6 +181,7 @@ def download():
 def ebay_small_parts():
     import time
     from flask import jsonify
+    import logging
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
     if not model or not year:
@@ -200,18 +201,22 @@ def ebay_small_parts():
     response = None
     for attempt in range(2):
         try:
-            response = requests.get(search_url, headers=headers, timeout=6)
+            print(f"Attempt {attempt + 1}: Fetching {search_url}")
+            response = requests.get(search_url, headers=headers, timeout=8)
             response.raise_for_status()
             break
+        except requests.exceptions.Timeout:
+            print(f"eBay fetch attempt {attempt + 1} timed out")
         except Exception as e:
             print(f"eBay fetch attempt {attempt + 1} failed: {e}")
-            time.sleep(1)
-    else:
+        time.sleep(1)
+
+    if not response or response.status_code != 200:
         return jsonify({
-            "under50": "<p><strong>Failed to fetch eBay data.</strong></p>",
-            "between50and500": "<p><strong>Failed to fetch eBay data.</strong></p>",
-            "over500": "<p><strong>Failed to fetch eBay data.</strong></p>"
-        }), 500
+            "under50": "<p><strong>eBay timed out or failed to respond.</strong></p>",
+            "between50and500": "<p><strong>No data due to timeout or error.</strong></p>",
+            "over500": "<p><strong>No data due to timeout or error.</strong></p>"
+        }), 200
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
