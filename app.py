@@ -215,6 +215,7 @@ def ebay_small_parts():
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
+    print(f"Found {len(items)} items in eBay search Small.")
 
     part_list = []
 
@@ -265,7 +266,7 @@ def ebay_medium_parts():
     query = f"{model} {year} used car parts"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_sop=12&_udhi=50&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
+        "&_sop=12&_udlo=50&_udhi=500&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
     )
     print("\U0001F50D eBay search URL:", search_url)
 
@@ -292,6 +293,7 @@ def ebay_medium_parts():
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
+    print(f"Found {len(items)} items in eBay search Medium.")
 
     part_list = []
 
