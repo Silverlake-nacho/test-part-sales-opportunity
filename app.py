@@ -176,7 +176,7 @@ def download():
         output.seek(0)
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
-
+    
 @app.route('/ebay_small_parts')
 def ebay_small_parts():
     import time
@@ -188,17 +188,12 @@ def ebay_small_parts():
     query = f"{model} {year} used car parts"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_sop=12&_udhi=50&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
+        "&_sop=12&_udhi=50000&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
     )
-    print("\U0001F50D eBay search URL:", search_url)
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Connection": "keep-alive",
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "en-US,en;q=0.9"
     }
 
     response = None
@@ -235,24 +230,40 @@ def ebay_small_parts():
         except ValueError:
             continue
 
-        if price <= 50:
-            part_list.append({
-                "title": title,
-                "price": price,
-                "link": link
-            })
+        part_list.append({"title": title, "price": price, "link": link})
 
-    if not part_list:
-        return "<p>No results found under £50.</p>"
+    def table_html(parts):
+        if not parts:
+            return "<p>No results found.</p>"
+        html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
+        for part in parts:
+            html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
+        html += "</tbody></table>"
+        return html
 
-    part_list.sort(key=lambda x: x["price"], reverse=True)
+    under_50 = [p for p in part_list if p["price"] <= 50]
+    between_50_500 = [p for p in part_list if 50 < p["price"] <= 500]
+    over_500 = [p for p in part_list if p["price"] > 500]
 
-    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
-    for part in part_list:
-        html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
-    html += "</tbody></table>"
-
-    return render_template_string(html)
+    tabbed_html = f"""
+<ul class='nav nav-tabs' id='ebayTabs' role='tablist'>
+  <li class='nav-item' role='presentation'>
+    <button class='nav-link active' id='under50-tab' data-bs-toggle='tab' data-bs-target='#under50' type='button' role='tab'>Under £50</button>
+  </li>
+  <li class='nav-item' role='presentation'>
+    <button class='nav-link' id='between-tab' data-bs-toggle='tab' data-bs-target='#between' type='button' role='tab'>£51–£500</button>
+  </li>
+  <li class='nav-item' role='presentation'>
+    <button class='nav-link' id='over-tab' data-bs-toggle='tab' data-bs-target='#over' type='button' role='tab'>Over £500</button>
+  </li>
+</ul>
+<div class='tab-content mt-3' id='ebayTabContent'>
+  <div class='tab-pane fade show active' id='under50' role='tabpanel'>{table_html(under_50)}</div>
+  <div class='tab-pane fade' id='between' role='tabpanel'>{table_html(between_50_500)}</div>
+  <div class='tab-pane fade' id='over' role='tabpanel'>{table_html(over_500)}</div>
+</div>
+    """
+return render_template_string(tabbed_html)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
