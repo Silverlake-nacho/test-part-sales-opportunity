@@ -46,6 +46,8 @@ def get_matching_google_sheet_rows(engine_code):
         for i, row in enumerate(values[1:], start=1):
             row_dict = {}
             for j, cell in enumerate(row):
+                if j in (17, 18):  # Skip columns R and S
+                    continue
                 cell_text = cell
                 bg_color = row_data[i]['values'][j].get('effectiveFormat', {}).get('backgroundColor', {})
                 hex_color = rgb_to_hex(bg_color)
@@ -95,7 +97,7 @@ def logout():
 
 @app.before_request
 def require_login():
-    allowed_routes = ['login', 'static', 'autocomplete_model', 'ebay_small_parts']
+    allowed_routes = ['login', 'static', 'autocomplete_model']
     if request.endpoint not in allowed_routes and not session.get('logged_in'):
         return redirect(url_for('login'))
     if session.get('logged_in'):
@@ -122,11 +124,7 @@ def index():
     google_sheet_matches = []
     if request.method == 'POST':
         model = request.form['model']
-        try:
-            year = int(request.form['year'])
-        except (ValueError, TypeError):
-            return render_template('index.html', error="Invalid year", parts=None, google_sheet_matches=[])
-
+        year = int(request.form['year'])
         engine_code = request.form.get('engine_code', '').strip()
         min_price = request.form.get('min_price')
         min_opportunity = request.form.get('min_opportunity')
@@ -135,7 +133,7 @@ def index():
             (df['Model'].str.lower() == model.lower()) &
             (df['IC Start Year'] <= year) &
             (df['IC End Year'] >= year)
-        ].copy()
+        ]
 
         if engine_code:
             def custom_filter(row):
@@ -184,23 +182,26 @@ def ebay_small_parts():
     import time
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
-    range_type = request.args.get('range', 'under50')
-
     if not model or not year:
         return "Model and year are required.", 400
 
     query = f"{model} {year} used car parts"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_sop=12&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
+        "&_sop=12&_udhi=50&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
     )
+    print("\U0001F50D eBay search URL:", search_url)
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                       "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
     }
 
+    response = None
     for attempt in range(3):
         try:
             response = requests.get(search_url, headers=headers, timeout=10)
@@ -210,7 +211,7 @@ def ebay_small_parts():
             print(f"eBay fetch attempt {attempt + 1} failed: {e}")
             time.sleep(2)
     else:
-        return "<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>"
+        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
@@ -230,24 +231,24 @@ def ebay_small_parts():
         link = link_tag.get("href")
 
         try:
-            price = float(price_text.replace(',', ''))
+            price = float(price_text)
         except ValueError:
             continue
 
-        if range_type == 'under50' and price <= 50:
-            part_list.append({"title": title, "price": price, "link": link})
-        elif range_type == 'fifty500' and 50 < price <= 500:
-            part_list.append({"title": title, "price": price, "link": link})
-        elif range_type == 'over500' and price > 500:
-            part_list.append({"title": title, "price": price, "link": link})
+        if price <= 50:
+            part_list.append({
+                "title": title,
+                "price": price,
+                "link": link
+            })
 
     if not part_list:
-        return "<p>No results found in this price range.</p>"
+        return "<p>No results found under £50.</p>"
 
     part_list.sort(key=lambda x: x["price"], reverse=True)
 
     html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
-    for part in part_list[:50]:
+    for part in part_list:
         html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
     html += "</tbody></table>"
 
