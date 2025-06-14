@@ -180,10 +180,12 @@ def download():
 @app.route('/ebay_small_parts')
 def ebay_small_parts():
     import time
+    from flask import jsonify
+
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
     if not model or not year:
-        return "Model and year are required.", 400
+        return jsonify({"error": "Model and year are required."}), 400
 
     query = f"{model} {year} used car parts"
     search_url = (
@@ -206,7 +208,11 @@ def ebay_small_parts():
             print(f"eBay fetch attempt {attempt + 1} failed: {e}")
             time.sleep(2)
     else:
-        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
+        return jsonify({
+            "under50": "<p><strong>Failed to fetch eBay data.</strong></p>",
+            "between50and500": "<p><strong>Failed to fetch eBay data.</strong></p>",
+            "over500": "<p><strong>Failed to fetch eBay data.</strong></p>"
+        }), 500
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
@@ -222,7 +228,7 @@ def ebay_small_parts():
             continue
 
         title = title_tag.get_text(strip=True)
-        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
+        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0].replace(",", "")
         link = link_tag.get("href")
 
         try:
@@ -245,25 +251,11 @@ def ebay_small_parts():
     between_50_500 = [p for p in part_list if 50 < p["price"] <= 500]
     over_500 = [p for p in part_list if p["price"] > 500]
 
-    tabbed_html = f"""
-<ul class='nav nav-tabs' id='ebayTabs' role='tablist'>
-  <li class='nav-item' role='presentation'>
-    <button class='nav-link active' id='under50-tab' data-bs-toggle='tab' data-bs-target='#under50' type='button' role='tab'>Under £50</button>
-  </li>
-  <li class='nav-item' role='presentation'>
-    <button class='nav-link' id='between-tab' data-bs-toggle='tab' data-bs-target='#between' type='button' role='tab'>£51–£500</button>
-  </li>
-  <li class='nav-item' role='presentation'>
-    <button class='nav-link' id='over-tab' data-bs-toggle='tab' data-bs-target='#over' type='button' role='tab'>Over £500</button>
-  </li>
-</ul>
-<div class='tab-content mt-3' id='ebayTabContent'>
-  <div class='tab-pane fade show active' id='under50' role='tabpanel'>{table_html(under_50)}</div>
-  <div class='tab-pane fade' id='between' role='tabpanel'>{table_html(between_50_500)}</div>
-  <div class='tab-pane fade' id='over' role='tabpanel'>{table_html(over_500)}</div>
-</div>
-    """
-    return render_template_string(tabbed_html)
+    return jsonify({
+        "under50": table_html(under_50),
+        "between50and500": table_html(between_50_500),
+        "over500": table_html(over_500)
+    })    
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
