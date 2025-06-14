@@ -181,7 +181,6 @@ def download():
 def ebay_small_parts():
     import time
     from flask import jsonify
-
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
     if not model or not year:
@@ -255,7 +254,7 @@ def ebay_small_parts():
         "under50": table_html(under_50),
         "between50and500": table_html(between_50_500),
         "over500": table_html(over_500)
-    })    
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
