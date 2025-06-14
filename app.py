@@ -255,8 +255,8 @@ def ebay_small_parts():
         return html
 
     under_50 = [p for p in part_list if p["price"] <= 50]
-    between_50_500 = [p for p in part_list if 50 < p["price"] <= 100]
-    over_500 = [p for p in part_list if 100 < p["price"] <= 200]
+    between_50_500 = [p for p in part_list if 50 < p["price"] <= 60]
+    over_500 = [p for p in part_list if 100 < p["price"] <= 150]
 
     return jsonify({
         "under50": table_html(under_50),
