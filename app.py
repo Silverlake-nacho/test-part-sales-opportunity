@@ -198,14 +198,14 @@ def ebay_small_parts():
     }
 
     response = None
-    for attempt in range(3):
+    for attempt in range(2):
         try:
-            response = requests.get(search_url, headers=headers, timeout=10)
+            response = requests.get(search_url, headers=headers, timeout=6)
             response.raise_for_status()
             break
         except Exception as e:
             print(f"eBay fetch attempt {attempt + 1} failed: {e}")
-            time.sleep(2)
+            time.sleep(1)
     else:
         return jsonify({
             "under50": "<p><strong>Failed to fetch eBay data.</strong></p>",
@@ -215,6 +215,9 @@ def ebay_small_parts():
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
+
+    if len(items) > 50:
+        items = items[:50]  # Limit number of items to prevent timeouts
 
     part_list = []
 
