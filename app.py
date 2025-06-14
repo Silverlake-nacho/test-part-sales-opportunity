@@ -176,53 +176,45 @@ def download():
         output.seek(0)
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
-    
+
 @app.route('/ebay_small_parts')
 def ebay_small_parts():
     import time
-    from flask import jsonify
-    import logging
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
     if not model or not year:
-        return jsonify({"error": "Model and year are required."}), 400
+        return "Model and year are required.", 400
 
     query = f"{model} {year} used car parts"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_sop=12&_udhi=50000&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
+        "&_sop=12&_udhi=50&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
     )
+    print("\U0001F50D eBay search URL:", search_url)
 
     headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "en-US,en;q=0.9"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
     }
 
     response = None
-    for attempt in range(2):
+    for attempt in range(3):
         try:
-            print(f"Attempt {attempt + 1}: Fetching {search_url}")
-            response = requests.get(search_url, headers=headers, timeout=8)
+            response = requests.get(search_url, headers=headers, timeout=10)
             response.raise_for_status()
             break
-        except requests.exceptions.Timeout:
-            print(f"eBay fetch attempt {attempt + 1} timed out")
         except Exception as e:
             print(f"eBay fetch attempt {attempt + 1} failed: {e}")
-        time.sleep(1)
-
-    if not response or response.status_code != 200:
-        return jsonify({
-            "under50": "<p><strong>eBay timed out or failed to respond.</strong></p>",
-            "between50and500": "<p><strong>No data due to timeout or error.</strong></p>",
-            "over500": "<p><strong>No data due to timeout or error.</strong></p>"
-        }), 200
+            time.sleep(2)
+    else:
+        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
-
-    if len(items) > 50:
-        items = items[:50]  # Limit number of items to prevent timeouts
 
     part_list = []
 
@@ -235,7 +227,7 @@ def ebay_small_parts():
             continue
 
         title = title_tag.get_text(strip=True)
-        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0].replace(",", "")
+        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
         link = link_tag.get("href")
 
         try:
@@ -243,26 +235,24 @@ def ebay_small_parts():
         except ValueError:
             continue
 
-        part_list.append({"title": title, "price": price, "link": link})
+        if price <= 50:
+            part_list.append({
+                "title": title,
+                "price": price,
+                "link": link
+            })
 
-    def table_html(parts):
-        if not parts:
-            return "<p>No results found.</p>"
-        html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
-        for part in parts:
-            html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
-        html += "</tbody></table>"
-        return html
+    if not part_list:
+        return "<p>No results found under £50.</p>"
 
-    under_50 = [p for p in part_list if p["price"] <= 50]
-    between_50_500 = [p for p in part_list if 50 < p["price"] <= 60]
-    over_500 = [p for p in part_list if 100 < p["price"] <= 150]
+    part_list.sort(key=lambda x: x["price"], reverse=True)
 
-    return jsonify({
-        "under50": table_html(under_50),
-        "between50and500": table_html(between_50_500),
-        "over500": table_html(over_500)
-    })
+    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
+    for part in part_list:
+        html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
+    html += "</tbody></table>"
+
+    return render_template_string(html)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
