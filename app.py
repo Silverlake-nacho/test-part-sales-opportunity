@@ -236,7 +236,7 @@ def ebay_small_parts():
         except ValueError:
             continue
 
-        if price >= 0:
+        if price <= 50:
             part_list.append({
                 "title": title,
                 "price": price,
@@ -315,7 +315,7 @@ def ebay_medium_parts():
         except ValueError:
             continue
 
-       # if price >=0:
+       if price > 50 and price <= 500:
             part_list.append({
                 "title": title,
                 "price": price,
@@ -372,7 +372,7 @@ def ebay_large_parts():
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
-    print(f"Found {len(items)} items in eBay search Medium.")
+    print(f"Found {len(items)} items in eBay search Large.")
 
     part_list = []
 
@@ -393,7 +393,7 @@ def ebay_large_parts():
         except ValueError:
             continue
 
-        if price >= 0:
+        if price >= 500:
             part_list.append({
                 "title": title,
                 "price": price,
