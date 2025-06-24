@@ -188,7 +188,7 @@ def ebay_small_parts():
     query = f"{model} {year}"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_from=R40&LH_ItemCondition=4&rt=nc&_sop=12&_udhi=50&LH_Complete=1&LH_Sold=1"
+        "&LH_ItemCondition=4&rt=nc&_sop=12&_udhi=50&LH_Complete=1&LH_Sold=1"
     )
     print("\U0001F50D eBay search URL:", search_url)
 
@@ -204,7 +204,7 @@ def ebay_small_parts():
     response = None
     for attempt in range(3):
         try:
-            response = requests.get(search_url, headers=headers, timeout=20)
+            response = requests.get(search_url, headers=headers, timeout=10)
             response.raise_for_status()
             break
         except Exception as e:
@@ -266,7 +266,7 @@ def ebay_medium_parts():
     query = f"{model} {year}"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_from=R40&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=50&_udhi=500&LH_Complete=1&LH_Sold=1"
+        "&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=50&_udhi=500&LH_Complete=1&LH_Sold=1"
         
     )
     print("\U0001F50D eBay search URL:", search_url)
@@ -283,7 +283,7 @@ def ebay_medium_parts():
     response = None
     for attempt in range(3):
         try:
-            response = requests.get(search_url, headers=headers, timeout=20)
+            response = requests.get(search_url, headers=headers, timeout=10)
             response.raise_for_status()
             break
         except Exception as e:
@@ -345,7 +345,7 @@ def ebay_large_parts():
     query = f"{model} {year}"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_from=R40&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=500&_udhi=5000&LH_Complete=1&LH_Sold=1"
+        "&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=500&_udhi=5000&LH_Complete=1&LH_Sold=1"
     )
     print("\U0001F50D eBay search URL:", search_url)
 
