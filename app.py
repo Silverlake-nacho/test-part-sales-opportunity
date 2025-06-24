@@ -185,10 +185,10 @@ def ebay_small_parts():
     if not model or not year:
         return "Model and year are required.", 400
 
-    query = f"{model} {year} used car parts"
+    query = f"{model} {year}"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_sop=12&_udhi=50&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
+        "&_from=R40&LH_ItemCondition=4&rt=nc&_sop=12&_udhi=50&LH_Complete=1&LH_Sold=1"
     )
     print("\U0001F50D eBay search URL:", search_url)
 
@@ -236,7 +236,7 @@ def ebay_small_parts():
         except ValueError:
             continue
 
-        if price <= 50:
+        if price >= 0:
             part_list.append({
                 "title": title,
                 "price": price,
@@ -342,10 +342,10 @@ def ebay_large_parts():
     if not model or not year:
         return "Model and year are required.", 400
 
-    query = f"{model} {year} used car parts"
+    query = f"{model} {year}"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_sop=12&_udlo=500&_udhi=50000&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
+        "&_from=R40&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=500&_udhi=5000&LH_Complete=1&LH_Sold=1"
     )
     print("\U0001F50D eBay search URL:", search_url)
 
@@ -393,7 +393,7 @@ def ebay_large_parts():
         except ValueError:
             continue
 
-        if price > 500 and price <= 50000:
+        if price >= 0:
             part_list.append({
                 "title": title,
                 "price": price,
