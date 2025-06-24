@@ -206,9 +206,6 @@ def ebay_small_parts():
         try:
             response = requests.get(search_url, headers=headers, timeout=20)
             response.raise_for_status()
-            # ✅ Save the full HTML to debug later
-            with open("ebay_debug_response.html", "w", encoding="utf-8") as f:
-               f.write(response.text)
             break
         except Exception as e:
             print(f"eBay fetch attempt {attempt + 1} failed: {e}")
@@ -318,7 +315,7 @@ def ebay_medium_parts():
         except ValueError:
             continue
 
-        if price >=0:
+       # if price >=0:
             part_list.append({
                 "title": title,
                 "price": price,
