@@ -263,10 +263,11 @@ def ebay_medium_parts():
     if not model or not year:
         return "Model and year are required.", 400
 
-    query = f"{model} {year} used car parts"
+    query = f"{model} {year}"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
-        "&_sop=12&_udlo=50&_udhi=500&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
+        "&_from=R40&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=50&_udhi=500&LH_Complete=1&LH_Sold=1"
+        
     )
     print("\U0001F50D eBay search URL:", search_url)
 
