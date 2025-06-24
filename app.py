@@ -204,7 +204,7 @@ def ebay_small_parts():
     response = None
     for attempt in range(3):
         try:
-            response = requests.get(search_url, headers=headers, timeout=10)
+            response = requests.get(search_url, headers=headers, timeout=20)
             response.raise_for_status()
             break
         except Exception as e:
@@ -283,7 +283,7 @@ def ebay_medium_parts():
     response = None
     for attempt in range(3):
         try:
-            response = requests.get(search_url, headers=headers, timeout=10)
+            response = requests.get(search_url, headers=headers, timeout=20)
             response.raise_for_status()
             break
         except Exception as e:
@@ -361,7 +361,7 @@ def ebay_large_parts():
     response = None
     for attempt in range(3):
         try:
-            response = requests.get(search_url, headers=headers, timeout=10)
+            response = requests.get(search_url, headers=headers, timeout=20)
             response.raise_for_status()
             break
         except Exception as e:
