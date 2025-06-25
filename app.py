@@ -262,22 +262,59 @@ def download():
 def ebay_small_parts():
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
+    
+    print(f"eBay Small Parts Requested: model={model}, year={year}") 
+    
+    if not model or not year:
+        return "Missing model or year", 400  # Return useful error
+
     parts = scrape_ebay_parts(model, year, max_price=50)
-    return render_template_string(make_html_table("Small Parts (≤ £50)", parts))
+
+    if parts is None or len(parts) == 0:
+        return "<p>No parts found.</p>"
+
+    html = make_html_table("eBay Small Parts (≤ £50)", parts)
+    return render_template_string(html)
 
 @app.route('/ebay_medium_parts')
 def ebay_medium_parts():
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
+
+    print(f"eBay Medium Parts Requested: model={model}, year={year}") 
+
+    if not model or not year:
+        return "Missing model or year", 400
+
+    # Get parts priced between £50 and £500
     parts = scrape_ebay_parts(model, year, min_price=50, max_price=500)
-    return render_template_string(make_html_table("Medium Parts (£50–£500)", parts))
+
+    if not parts:
+        return "<p>No medium-priced parts found.</p>"
+
+    html = make_html_table("eBay Medium Parts (£50 - £500)", parts)
+    return render_template_string(html)   
+    
 
 @app.route('/ebay_large_parts')
 def ebay_large_parts():
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
+
+    print(f"eBay Large Parts Requested: model={model}, year={year}") 
+
+    if not model or not year:
+        return "Missing model or year", 400
+
+    # Get parts priced over £500
     parts = scrape_ebay_parts(model, year, min_price=500)
-    return render_template_string(make_html_table("Large Parts (> £500)", parts))
+
+    if not parts:
+        return "<p>No large-priced parts found.</p>"
+
+    html = make_html_table("eBay Large Parts (Over £500)", parts)
+    return render_template_string(html)
+
 
 @app.route('/ebay_all_parts')
 def ebay_all_parts():
