@@ -129,8 +129,6 @@ def index():
         min_price = request.form.get('min_price')
         min_opportunity = request.form.get('min_opportunity')
 
-        main_parts_only = request.form.get('main_parts_only') == 'on'
-
         filtered = df[
             (df['Model'].str.lower() == model.lower()) &
             (df['IC Start Year'] <= year) &
@@ -145,16 +143,7 @@ def index():
                 return True
 
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
-            # Optional extra filtering based on checkbox
-            main_parts_only = request.form.get('filter_main_parts')
-            if main_parts_only:
-                keywords = ['ENGINE', 'TRANS/GEARBOX', 'FRONT_BUMPER', 'REAR_BUMPER']
-                def match_keywords(desc):
-                    desc = str(desc).lower()
-                    return any(kw in desc for kw in keywords)
-                filtered = filtered[filtered['Part'].apply(match_keywords)]
 
-        
         if not filtered.empty:
             filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
             filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
@@ -169,12 +158,7 @@ def index():
                               'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
             parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
             last_search_result = parts
-            search_details = {
-                'model': model,
-                'year': year,
-                'engine_code': engine_code,
-                'main_parts_only': bool(main_parts_only)
-            }
+            search_details = {'model': model, 'year': year, 'engine_code': engine_code}
             parts = parts.to_dict('records')
 
         if engine_code:
