@@ -7,7 +7,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-import time
 import requests
 from bs4 import BeautifulSoup
 from flask import request, render_template_string
@@ -146,6 +145,10 @@ def index():
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
         if not filtered.empty:
+
+        selected_parts = request.form.getlist('filter_parts')
+        if selected_parts:
+            filtered = filtered[filtered['Part'].isin(selected_parts)]
             filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
             filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
             filtered['Opportunity_Score'] = filtered['Potential_Profit'] * filtered['Sales_Speed']
