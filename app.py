@@ -150,14 +150,14 @@ def index():
                 return True
 
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
-           # Optional extra filtering based on checkbox
-          main_parts_only = request.form.get('filter_main_parts')
-          if main_parts_only:
-              keywords = ['ENGINE', 'TRANS/GEARBOX', 'FRONT_BUMPER', 'REAR_BUMPER']
-              def match_keywords(desc):
-                desc = str(desc).lower()
-                return any(kw in desc for kw in keywords)
-              filtered = filtered[filtered['Part'].apply(match_keywords)]
+            # Optional extra filtering based on checkbox
+            main_parts_only = request.form.get('filter_main_parts')
+            if main_parts_only:
+                keywords = ['ENGINE', 'TRANS/GEARBOX', 'FRONT_BUMPER', 'REAR_BUMPER']
+                def match_keywords(desc):
+                    desc = str(desc).lower()
+                    return any(kw in desc for kw in keywords)
+                filtered = filtered[filtered['Part'].apply(match_keywords)]
 
         
         if not filtered.empty:
