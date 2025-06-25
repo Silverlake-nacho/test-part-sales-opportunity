@@ -148,6 +148,7 @@ def index():
                 selected_parts = request.form.getlist('filter_parts')
                 if selected_parts:
                     filtered = filtered[filtered['Part'].isin(selected_parts)]
+                if not filtered.empty:
                     filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
                     filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
                     filtered['Opportunity_Score'] = filtered['Potential_Profit'] * filtered['Sales_Speed']
