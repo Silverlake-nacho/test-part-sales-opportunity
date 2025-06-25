@@ -144,7 +144,7 @@ def index():
 
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
-        if not filtered.empty:
+            if not filtered.empty:
 
         selected_parts = request.form.getlist('filter_parts')
         if selected_parts:
