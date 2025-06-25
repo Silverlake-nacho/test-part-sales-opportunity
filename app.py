@@ -129,6 +129,8 @@ def index():
         min_price = request.form.get('min_price')
         min_opportunity = request.form.get('min_opportunity')
 
+        main_parts_only = request.form.get('main_parts_only') == 'on'
+
         filtered = df[
             (df['Model'].str.lower() == model.lower()) &
             (df['IC Start Year'] <= year) &
