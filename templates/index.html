@@ -107,7 +107,7 @@
   <label class="form-label">Filter by Specific Part(s) (Optional)</label>
   <select name="filter_parts" class="form-control" multiple>
     {% set selected_parts = request.form.getlist('filter_parts') %}
-    {% for part in ['Alternator', 'Turbocharger', 'Radiator', 'Brake Disc', 'Starter Motor', 'Fuel Pump', 'Catalytic Converter', 'Coil Pack'] %}
+    {% for part in ['[ENGINE]', '[L_HEADLAMP]', '[TRANS/GEARBOX]', 'Brake Disc', 'Starter Motor', 'Fuel Pump', 'Catalytic Converter', 'Coil Pack'] %}
       <option value="{{ part }}" {% if part in selected_parts %}selected{% endif %}>{{ part }}</option>
     {% endfor %}
   </select>
