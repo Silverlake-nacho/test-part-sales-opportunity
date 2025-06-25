@@ -6,6 +6,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+import time
 
 import requests
 from bs4 import BeautifulSoup
@@ -108,7 +109,7 @@ def scrape_ebay_parts(model, year, min_price=0, max_price=None):
 
     for attempt in range(3):
         try:
-            resp = requests.get(url, headers=headers, timeout=10)
+            resp = requests.get(url, headers=headers, timeout=30)
             resp.raise_for_status()
             break
         except Exception as e:
