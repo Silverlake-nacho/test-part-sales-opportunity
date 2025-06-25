@@ -76,13 +76,6 @@ USERS = {
 last_search_result = None
 search_details = None
 
-search_details = {
-    'model': model,
-    'year': year,
-    'engine_code': engine_code,
-    'main_parts_only': bool(main_parts_only)
-}
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
@@ -174,7 +167,12 @@ def index():
                               'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
             parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
             last_search_result = parts
-            search_details = {'model': model, 'year': year, 'engine_code': engine_code}
+            search_details = {
+                'model': model,
+                'year': year,
+                'engine_code': engine_code,
+                'main_parts_only': bool(main_parts_only)
+            }
             parts = parts.to_dict('records')
 
         if engine_code:
