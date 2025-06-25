@@ -76,6 +76,13 @@ USERS = {
 last_search_result = None
 search_details = None
 
+search_details = {
+    'model': model,
+    'year': year,
+    'engine_code': engine_code,
+    'main_parts_only': bool(main_parts_only)
+}
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
@@ -143,7 +150,16 @@ def index():
                 return True
 
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
+           # Optional extra filtering based on checkbox
+          main_parts_only = request.form.get('filter_main_parts')
+          if main_parts_only:
+              keywords = ['ENGINE', 'TRANS/GEARBOX', 'FRONT_BUMPER', 'REAR_BUMPER']
+              def match_keywords(desc):
+                desc = str(desc).lower()
+                return any(kw in desc for kw in keywords)
+              filtered = filtered[filtered['Part'].apply(match_keywords)]
 
+        
         if not filtered.empty:
             filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
             filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
