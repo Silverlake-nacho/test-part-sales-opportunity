@@ -6,8 +6,8 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-import time
 
+import time
 import requests
 from bs4 import BeautifulSoup
 from flask import request, render_template_string
@@ -73,87 +73,6 @@ USERS = {
     'admin': 'Silverlake1!',
     'nacho': 'Silverlake1!'
 }
-
-def rgb_to_hex(rgb):
-    r = int(rgb.get('red', 1) * 255)
-    g = int(rgb.get('green', 1) * 255)
-    b = int(rgb.get('blue', 1) * 255)
-    return '#{:02X}{:02X}{:02X}'.format(r, g, b)
-
-def get_matching_google_sheet_rows(engine_code):
-    # ... (unchanged) ...
-    pass  # assume full original code here
-
-file_path = 'WebFleet.csv'
-df = pd.read_csv(file_path)
-
-# —————————————— ↳ NEW: Refactored eBay scraping logic ——————————————
-
-def scrape_ebay_parts(model, year, min_price=0, max_price=None):
-    query = f"{model} {year}"
-    url = (
-        f"https://www.ebay.co.uk/sch/131090/i.html?_nkw={query.replace(' ', '+')}"
-        f"&LH_ItemCondition=4&rt=nc&_sop=12"
-        f"{f'&_udlo={min_price}' if min_price else ''}"
-        f"{f'&_udhi={max_price}' if max_price else ''}"
-        f"&LH_Complete=1&LH_Sold=1"
-    )
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/91.0.4472.124 Safari/537.36"
-        ),
-        "Accept-Language": "en-US,en;q=0.9",
-    }
-
-    for attempt in range(3):
-        try:
-            resp = requests.get(url, headers=headers, timeout=30)
-            resp.raise_for_status()
-            break
-        except Exception as e:
-            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
-            time.sleep(2)
-    else:
-        return []
-
-    soup = BeautifulSoup(resp.text, 'html.parser')
-    items = soup.select('.s-item')
-    parts = []
-    for item in items:
-        title = item.select_one('.s-item__title')
-        price_tag = item.select_one('.s-item__price')
-        link = item.select_one('.s-item__link')
-        if not title or not price_tag or not link:
-            continue
-        try:
-            price_str = price_tag.get_text(strip=True).replace("£", "").replace(",", "")
-            price = float(price_str.split()[0])
-        except ValueError:
-            continue
-        parts.append({
-            "title": title.get_text(strip=True),
-            "price": price,
-            "link": link.get("href")
-        })
-
-    parts.sort(key=lambda x: x["price"], reverse=True)
-    return parts
-
-def make_html_table(title, parts):
-    if not parts:
-        return f"<h3>{title}</h3><p>No parts found.</p>"
-    html = f"<h3>{title}</h3><table><tr><th>Title</th><th>Price</th><th>Link</th></tr>"
-    for p in parts:
-        html += (
-            f"<tr><td>{p['title']}</td>"
-            f"<td>£{p['price']:.2f}</td>"
-            f"<td><a href='{p['link']}' target='_blank'>View</a></td></tr>"
-        )
-    html += "</table>"
-    return html
-
 
 last_search_result = None
 search_details = None
@@ -261,73 +180,239 @@ def download():
 
 @app.route('/ebay_small_parts')
 def ebay_small_parts():
+    import time
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
-    
-    print(f"eBay Small Parts Requested: model={model}, year={year}") 
-    
     if not model or not year:
-        return "Missing model or year", 400  # Return useful error
+        return "Model and year are required.", 400
 
-    parts = scrape_ebay_parts(model, year, max_price=50)
+    query = f"{model} {year}"
+    search_url = (
+        "https://www.ebay.co.uk/sch/131090/i.html?_nkw=" + query.replace(" ", "+") +
+        "&LH_ItemCondition=4&rt=nc&_sop=12&_udhi=50&LH_Complete=1&LH_Sold=1"
+    )
+    print("\U0001F50D eBay search URL:", search_url)
 
-    if parts is None or len(parts) == 0:
-        return "<p>No parts found.</p>"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
+    }
 
-    html = make_html_table("eBay Small Parts (≤ £50)", parts)
+    response = None
+    for attempt in range(3):
+        try:
+            response = requests.get(search_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            break
+        except Exception as e:
+            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
+            time.sleep(2)
+    else:
+        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    items = soup.select('.s-item')
+    print(f"Found {len(items)} items in eBay search Small.")
+
+    part_list = []
+
+    for item in items:
+        title_tag = item.select_one('.s-item__title')
+        price_tag = item.select_one('.s-item__price')
+        link_tag = item.select_one('.s-item__link')
+
+        if not title_tag or not price_tag or not link_tag:
+            continue
+
+        title = title_tag.get_text(strip=True)
+        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
+        link = link_tag.get("href")
+
+        try:
+            price = float(price_text)
+        except ValueError:
+            continue
+
+        if price <= 50:
+            part_list.append({
+                "title": title,
+                "price": price,
+                "link": link
+            })
+
+    if not part_list:
+        return "<p>No results found under £50.</p>"
+
+    part_list.sort(key=lambda x: x["price"], reverse=True)
+
+    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
+    for part in part_list:
+        html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
+    html += "</tbody></table>"
+
     return render_template_string(html)
 
 @app.route('/ebay_medium_parts')
 def ebay_medium_parts():
+    import time
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
-
-    print(f"eBay Medium Parts Requested: model={model}, year={year}") 
-
     if not model or not year:
-        return "Missing model or year", 400
+        return "Model and year are required.", 400
 
-    # Get parts priced between £50 and £500
-    parts = scrape_ebay_parts(model, year, min_price=50, max_price=500)
+    query = f"{model} {year}"
+    search_url = (
+        "https://www.ebay.co.uk/sch/131090/i.html?_nkw=" + query.replace(" ", "+") +
+        "&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=50&_udhi=500&LH_Complete=1&LH_Sold=1"
+        
+    )
+    print("\U0001F50D eBay search URL:", search_url)
 
-    if not parts:
-        return "<p>No medium-priced parts found.</p>"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
+    }
 
-    html = make_html_table("eBay Medium Parts (£50 - £500)", parts)
-    return render_template_string(html)   
-    
+    response = None
+    for attempt in range(3):
+        try:
+            response = requests.get(search_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            break
+        except Exception as e:
+            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
+            time.sleep(2)
+    else:
+        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    items = soup.select('.s-item')
+    print(f"Found {len(items)} items in eBay search Medium.")
+
+    part_list = []
+
+    for item in items:
+        title_tag = item.select_one('.s-item__title')
+        price_tag = item.select_one('.s-item__price')
+        link_tag = item.select_one('.s-item__link')
+
+        if not title_tag or not price_tag or not link_tag:
+            continue
+
+        title = title_tag.get_text(strip=True)
+        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
+        link = link_tag.get("href")
+
+        try:
+            price = float(price_text)
+        except ValueError:
+            continue
+
+        if price > 50 and price <= 500:
+            part_list.append({
+                "title": title,
+                "price": price,
+                "link": link
+            })
+
+    if not part_list:
+        return "<p>No results found between £50 and £500.</p>"
+
+    part_list.sort(key=lambda x: x["price"], reverse=True)
+
+    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
+    for part in part_list:
+        html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
+    html += "</tbody></table>"
+
+    return render_template_string(html)
 
 @app.route('/ebay_large_parts')
 def ebay_large_parts():
+    import time
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
-
-    print(f"eBay Large Parts Requested: model={model}, year={year}") 
-
     if not model or not year:
-        return "Missing model or year", 400
+        return "Model and year are required.", 400
 
-    # Get parts priced over £500
-    parts = scrape_ebay_parts(model, year, min_price=500)
+    query = f"{model} {year}"
+    search_url = (
+        "https://www.ebay.co.uk/sch/131090/i.html?_nkw=" + query.replace(" ", "+") +
+        "&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=500&_udhi=5000&LH_Complete=1&LH_Sold=1"
+    )
+    print("\U0001F50D eBay search URL:", search_url)
 
-    if not parts:
-        return "<p>No large-priced parts found.</p>"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
+    }
 
-    html = make_html_table("eBay Large Parts (Over £500)", parts)
+    response = None
+    for attempt in range(3):
+        try:
+            response = requests.get(search_url, headers=headers, timeout=20)
+            response.raise_for_status()
+            break
+        except Exception as e:
+            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
+            time.sleep(2)
+    else:
+        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    items = soup.select('.s-item')
+    print(f"Found {len(items)} items in eBay search Large.")
+
+    part_list = []
+
+    for item in items:
+        title_tag = item.select_one('.s-item__title')
+        price_tag = item.select_one('.s-item__price')
+        link_tag = item.select_one('.s-item__link')
+
+        if not title_tag or not price_tag or not link_tag:
+            continue
+
+        title = title_tag.get_text(strip=True)
+        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
+        link = link_tag.get("href")
+
+        try:
+            price = float(price_text)
+        except ValueError:
+            continue
+
+        if price >= 500:
+            part_list.append({
+                "title": title,
+                "price": price,
+                "link": link
+            })
+
+    if not part_list:
+        return "<p>No results found over £500.</p>"
+
+    part_list.sort(key=lambda x: x["price"], reverse=True)
+
+    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
+    for part in part_list:
+        html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
+    html += "</tbody></table>"
+
     return render_template_string(html)
 
-
-@app.route('/ebay_all_parts')
-def ebay_all_parts():
-    model = request.args.get('model', '').strip()
-    year = request.args.get('year', '').strip()
-    small = scrape_ebay_parts(model, year, max_price=50)
-    med = scrape_ebay_parts(model, year, min_price=50, max_price=500)
-    large = scrape_ebay_parts(model, year, min_price=500)
-    html = make_html_table("Small Parts (≤ £50)", small) + \
-           make_html_table("Medium Parts (£50–£500)", med) + \
-           make_html_table("Large Parts (> £500)", large)
-    return render_template_string(html)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
