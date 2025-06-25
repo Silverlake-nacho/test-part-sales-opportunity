@@ -146,7 +146,7 @@ def index():
 
             if not filtered.empty:
 
-        selected_parts = request.form.getlist('filter_parts')
+            selected_parts = request.form.getlist('filter_parts')
         if selected_parts:
             filtered = filtered[filtered['Part'].isin(selected_parts)]
             filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
