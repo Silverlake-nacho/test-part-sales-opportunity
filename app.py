@@ -149,7 +149,7 @@ def index():
         # 🚨 NEW: exclusion list logic
         if action == 'search_excluding':
             exclusion_keywords = [
-                "[ENGINE]", "[TRANS/GEARBOX]", "Turbo", "Supercharger", "Throttle body",
+                "[ENGINE]", "[TRANS/GEARBOX]", "[TURBOCHARGER]", "[SUPERCHARGER]", "[THROTTLE_BODY]",
                 "[ALTERNATOR]", "[STARTER]", "Air con pump", "Cylinder head",
                 "Injectors", "Injector rail", "Ignition coil",
                 "Injector pump (high pressure)", "Sump pan", "EGR Valve"
