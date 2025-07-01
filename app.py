@@ -149,10 +149,10 @@ def index():
         # 🚨 NEW: exclusion list logic
         if action == 'search_excluding':
             exclusion_keywords = [
-                "ENGINE", "TRANS/GEARBOX", "[TURBOCHARGER]", "[SUPERCHARGER]", "[THROTTLE_BODY]",
-                "[ALTERNATOR]", "[STARTER]", "Air con pump", "Cylinder head",
-                "Injectors", "Injector rail", "Ignition coil",
-                "Injector pump (high pressure)", "Sump pan", "EGR Valve"
+                "ENGINE", "TRANS/GEARBOX", "TURBOCHARGER", "SUPERCHARGER", "THROTTLE_BODY",
+                "ALTERNATOR", "STARTER", "COMPRESSOR", "Cylinder_head",
+                "FUEL_INJECTOR", "Injector_rail", "COIL/COIL_PACK",
+                "Injector_pump", "OIL_PAN/SUMP", "EGR_VALVE/COOLER"
             ]
             pattern = '|'.join(rf'\b{kw}\b' for kw in exclusion_keywords)
             filtered = filtered[~filtered['Part'].str.contains(pattern, case=False, na=False, regex=True)]
