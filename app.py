@@ -150,7 +150,7 @@ def index():
         if action == 'search_excluding':
             exclusion_keywords = [
                 "ENGINE", "TRANS/GEARBOX", "TURBOCHARGER", "SUPERCHARGER", "THROTTLE_BODY",
-                "ALTERNATOR", "STARTER", "COMPRESSOR", "Cylinder_head",
+                "ALTERNATOR", "STARTER", "A/C_COMPRESSOR", "Cylinder_head",
                 "FUEL_INJECTOR", "Injector_rail", "COIL/COIL_PACK",
                 "Injector_pump", "OIL_PAN/SUMP", "EGR_VALVE/COOLER"
             ]
