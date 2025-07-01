@@ -129,7 +129,9 @@ def index():
         engine_code = request.form.get('engine_code', '').strip()
         min_price = request.form.get('min_price')
         min_opportunity = request.form.get('min_opportunity')
+        action = request.form.get('action')
 
+        # Initial filtering
         filtered = df[
             (df['Model'].str.lower() == model.lower()) &
             (df['IC Start Year'] <= year) &
@@ -142,9 +144,20 @@ def index():
                 if 'engine code' in description.lower():
                     return engine_code.lower() in description.lower()
                 return True
-
             filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
+        # 🚨 NEW: exclusion list logic
+        if action == 'search_excluding':
+            exclusion_keywords = [
+                "Engine", "Gearbox", "Turbo", "Supercharger", "Throttle body",
+                "Alternator", "Starter motor", "Air con pump", "Cylinder head",
+                "Injectors", "Injector rail", "Ignition coil",
+                "Injector pump (high pressure)", "Sump pan", "EGR Valve"
+            ]
+            pattern = '|'.join(rf'\b{kw}\b' for kw in exclusion_keywords)
+            filtered = filtered[~filtered['Part'].str.contains(pattern, case=False, na=False, regex=True)]
+
+        # Proceed with opportunity calculations if there's something left
         if not filtered.empty:
             filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
             filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
