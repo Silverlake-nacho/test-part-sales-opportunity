@@ -104,14 +104,55 @@ def build_ebay_search_url(model, year, min_price=None, max_price=None):
 def parse_price_value(value):
     if value is None:
         return None
-    price_str = str(value).replace(",", "").replace("\xa0", " ").strip()
-    match = re.search(r"\d+(?:\.\d+)?", price_str)
-    if not match:
+
+    price_str = str(value).replace("\xa0", " ").strip()
+    if not price_str:
         return None
-    try:
-        return float(match.group())
-    except ValueError:
+
+    def _to_float(segment):
+        segment = segment.strip()
+        if not segment:
+            return None
+        segment = segment.replace(" ", "")
+
+        has_comma = "," in segment
+        has_dot = "." in segment
+
+        if has_comma and has_dot:
+            if segment.rfind(",") > segment.rfind("."):
+                segment = segment.replace(".", "")
+                segment = segment.replace(",", ".")
+            else:
+                segment = segment.replace(",", "")
+        elif has_comma:
+            if segment.count(",") > 1:
+                segment = segment.replace(",", "")
+            else:
+                integer_part, decimal_part = segment.split(",")
+                if len(decimal_part) in (1, 2):
+                    segment = integer_part + "." + decimal_part
+                else:
+                    segment = integer_part + decimal_part
+        elif has_dot and segment.count(".") > 1:
+            last_dot = segment.rfind(".")
+            segment = segment[:last_dot].replace(".", "") + "." + segment[last_dot + 1 :]
+
+        try:
+            return float(segment)
+        except ValueError:
+            return None
+
+    number_segments = re.findall(r"\d[\d.,\s]*\d|\d", price_str)
+    numbers = []
+    for raw_segment in number_segments:
+        number = _to_float(raw_segment)
+        if number is not None:
+            numbers.append(number)
+
+    if not numbers:
         return None
+
+    return min(numbers)
 
 
 def get_price_from_offer(offer):
@@ -196,12 +237,77 @@ def extract_items_from_jsonld(soup):
 def extract_items_from_html(soup):
     parts = []
     seen = set()
-    for item in soup.select(".s-item"):
-        title_tag = item.select_one(".s-item__title") or item.select_one('[data-testid="ITEM_TITLE"]')
-        link_tag = item.select_one(".s-item__link")
+
+    def _normalize_container(node):
+        if node is None:
+            return None
+        if node.name == "li":
+            return node
+        parent = node.find_parent("li")
+        if parent is not None:
+            return parent
+        return node
+
+    item_selectors = [
+        "li.s-item",
+        "li[data-testid='result']",
+        "div.s-item__wrapper",
+        "div.s-item__info",
+    ]
+
+    processed_nodes = set()
+    items = []
+    for selector in item_selectors:
+        for element in soup.select(selector):
+            candidate = _normalize_container(element)
+            if candidate is None:
+                continue
+            candidate_id = id(candidate)
+            if candidate_id in processed_nodes:
+                continue
+            processed_nodes.add(candidate_id)
+            items.append(candidate)
+
+    title_selectors = (
+        ".s-item__title",
+        "[data-testid='item-title']",
+        "[data-testid='ITEM_TITLE']",
+        "h3",
+        "span[role='heading']",
+    )
+    link_selectors = (
+        ".s-item__link",
+        "a[data-testid='item-title']",
+        "a[data-testid='item-link']",
+        "a.s-item__info-link",
+    )
+    price_selectors = (
+        ".s-item__price",
+        "[data-testid='ITEM_PRICE']",
+        "span[data-testid='item-price']",
+        "[data-testid='item-price']",
+    )
+
+    for item in items:
+        title_tag = None
+        for selector in title_selectors:
+            title_tag = item.select_one(selector)
+            if title_tag and title_tag.get_text(strip=True):
+                break
+
+        link_tag = None
+        for selector in link_selectors:
+            link_tag = item.select_one(selector)
+            if link_tag and link_tag.get("href"):
+                break
         if link_tag is None:
             link_tag = item.find("a", href=True)
-        price_tag = item.select_one(".s-item__price") or item.select_one('[data-testid="ITEM_PRICE"]')
+
+        price_tag = None
+        for selector in price_selectors:
+            price_tag = item.select_one(selector)
+            if price_tag and price_tag.get_text(strip=True):
+                break
 
         if not link_tag or not link_tag.get("href"):
             continue
@@ -513,4 +619,5 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
