@@ -8,6 +8,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 import json
+import logging
 import re
 import time
 import requests
@@ -15,6 +16,10 @@ from bs4 import BeautifulSoup
 from flask import request, render_template_string
 from collections import defaultdict
 from urllib.parse import urlencode, quote_plus, urljoin
+
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 def rgb_to_hex(rgb):
     r = int(rgb.get('red', 1) * 255)
@@ -222,23 +227,67 @@ def extract_items_from_html(soup):
 
 
 def fetch_ebay_html(url):
-    response = None
-    for attempt in range(3):
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        response = None
         try:
             response = requests.get(url, headers=EBAY_HEADERS, timeout=15)
+            logger.info(
+                "Fetched eBay URL %s (attempt %d/%d) with status %s",
+                url,
+                attempt,
+                max_attempts,
+                response.status_code,
+            )
             response.raise_for_status()
             return response.text
         except Exception as e:
-            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
+            status_code = response.status_code if response is not None else "no response"
+            logger.warning(
+                "eBay fetch attempt %d/%d for %s failed with status %s: %s",
+                attempt,
+                max_attempts,
+                url,
+                status_code,
+                e,
+            )
             time.sleep(2)
+    logger.error("Failed to fetch eBay URL %s after %d attempts", url, max_attempts)
     return None
 
 
-def parse_ebay_response(html):
+def _looks_like_consent_or_captcha(html_snippet):
+    lowered = html_snippet.lower()
+    keywords = [
+        "captcha",
+        "consent",
+        "robot",
+        "verify you're human",
+        "verify you are human",
+        "are you a robot",
+        "security measure",
+        "botblock",
+        "hcaptcha",
+        "recaptcha",
+        "enter the characters",
+    ]
+    return any(keyword in lowered for keyword in keywords)
+
+
+def parse_ebay_response(html, url=None):
     soup = BeautifulSoup(html, "html.parser")
     parts = extract_items_from_jsonld(soup)
     if not parts:
         parts = extract_items_from_html(soup)
+    if not parts:
+        snippet = re.sub(r"\s+", " ", html)[:500]
+        consent_captcha = _looks_like_consent_or_captcha(snippet)
+        logger.warning(
+            "No parts parsed from eBay response for %s. Consent/CAPTCHA suspected: %s. Snippet: %s",
+            url or "unknown URL",
+            "yes" if consent_captcha else "no",
+            snippet,
+        )
     return parts
 
 
@@ -397,7 +446,7 @@ def ebay_small_parts():
     if html is None:
         return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
 
-    parts = parse_ebay_response(html)
+    parts = parse_ebay_response(html, url=search_url)
     print(f"Parsed {len(parts)} candidate items in eBay search Small.")
 
     part_list = [part for part in parts if part["price"] <= 50]
@@ -423,7 +472,7 @@ def ebay_medium_parts():
     if html is None:
         return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
 
-    parts = parse_ebay_response(html)
+    parts = parse_ebay_response(html, url=search_url)
     print(f"Parsed {len(parts)} candidate items in eBay search Medium.")
 
     part_list = [part for part in parts if part["price"] > 50 and part["price"] <= 500]
@@ -449,7 +498,7 @@ def ebay_large_parts():
     if html is None:
         return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
 
-    parts = parse_ebay_response(html)
+    parts = parse_ebay_response(html, url=search_url)
     print(f"Parsed {len(parts)} candidate items in eBay search Large.")
 
     part_list = [part for part in parts if part["price"] >= 500]
@@ -464,3 +513,4 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
