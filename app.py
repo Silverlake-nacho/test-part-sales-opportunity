@@ -109,6 +109,21 @@ def parse_price_value(value):
     if not price_str:
         return None
 
+    exclusion_words_before = {"bid", "bids", "postage"}
+    exclusion_words_after = {"bid", "bids"}
+
+    def _normalize_word(word):
+        if not word:
+            return None
+        return re.sub(r"[^a-z]+", "", word.lower()) or None
+
+    def _adjacent_word(text, index, direction):
+        if direction == "before":
+            match = re.search(r"(\w+)\W*$", text[:index])
+        else:
+            match = re.search(r"^\W*(\w+)", text[index:])
+        return _normalize_word(match.group(1)) if match else None
+
     def _to_float(segment):
         segment = segment.strip()
         if not segment:
@@ -142,18 +157,62 @@ def parse_price_value(value):
         except ValueError:
             return None
 
-    number_segments = re.findall(r"\d[\d.,\s]*\d|\d", price_str)
-    numbers = []
-    for raw_segment in number_segments:
-        number = _to_float(raw_segment)
-        if number is not None:
-            numbers.append(number)
+    pattern = re.compile(r"(?P<currency>[£$€])?\s*(?P<number>\d[\d.,]*\d|\d)")
+    candidates = []
 
-    if not numbers:
+    for match in pattern.finditer(price_str):
+        raw_number = match.group("number")
+        number = _to_float(raw_number)
+        if number is None:
+            continue
+
+        start, end = match.span()
+        prev_word = _adjacent_word(price_str, start, "before")
+        next_word = _adjacent_word(price_str, end, "after")
+
+        if prev_word in exclusion_words_before:
+            continue
+        if next_word in exclusion_words_after and not match.group("currency"):
+            continue
+
+        has_currency = bool(match.group("currency"))
+        candidates.append({
+            "value": number,
+            "currency": has_currency,
+        })
+
+    if not candidates:
         return None
 
-    return min(numbers)
+    currency_candidates = [c for c in candidates if c["currency"]]
+    if currency_candidates:
+        return max(currency_candidates, key=lambda c: c["value"])['value']
 
+    return max(candidates, key=lambda c: c["value"])['value']
+
+
+PRICE_PARSING_REGRESSIONS = [
+    ("£125.00 12 bids + £6 postage", 125.00),
+    ("£45.00 postage £4.50", 45.00),
+]
+
+
+def run_price_parsing_regressions(snippets=None):
+    """Return regression results for parse_price_value handling."""
+
+    results = []
+    snippets = snippets or PRICE_PARSING_REGRESSIONS
+    for raw, expected in snippets:
+        parsed = parse_price_value(raw)
+        ok = parsed is not None and abs(parsed - expected) < 0.01
+        results.append({
+            "input": raw,
+            "expected": expected,
+            "parsed": parsed,
+            "ok": ok,
+        })
+    return results
+    
 
 def get_price_from_offer(offer):
     if not isinstance(offer, dict):
@@ -619,5 +678,6 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
