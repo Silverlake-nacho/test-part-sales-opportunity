@@ -102,6 +102,8 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
     params = {
         "q": query,
         "limit": str(limit),
+        "category_ids": "131090",
+        "sort": "price",
     }
 
     price_filters = []
@@ -111,6 +113,9 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
         price_filters.append(f"price:[{min_price}..]")
     elif max_price is not None:
         price_filters.append(f"price:[..{max_price}]")
+
+    price_filters.append("conditionIds:{3000}")
+    price_filters.append("soldItemsOnly:true")
 
     if price_filters:
         params["filter"] = ",".join(price_filters)
@@ -392,6 +397,7 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
 
