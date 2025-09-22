@@ -104,33 +104,6 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
         "limit": str(limit),
     }
 
-    compatibility_parts = []
-    make_token = model_tokens = None
-    if sanitized_model:
-        tokens = sanitized_model.split()
-        if len(tokens) >= 2:
-            make_token = tokens[0]
-            model_tokens = " ".join(tokens[1:])
-        else:
-            logger.debug(
-                "Skipping eBay compatibility filter: make is unknown for model '%s'",
-                sanitized_model,
-            )
-
-    if make_token and model_tokens:
-        compatibility_parts.append(f"Make:{make_token}")
-        compatibility_parts.append(f"Model:{model_tokens}")
-        if sanitized_year:
-            compatibility_parts.append(f"Year:{sanitized_year}")
-    elif sanitized_year and not compatibility_parts:
-        logger.debug(
-            "Skipping eBay compatibility filter: need make and model before adding year '%s'",
-            sanitized_year,
-        )
-
-    if compatibility_parts:
-        params["compatibility_filter"] = "|".join(compatibility_parts)
-
     price_filters = []
     if min_price is not None and max_price is not None:
         price_filters.append(f"price:[{min_price}..{max_price}]")
@@ -169,27 +142,6 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
         logger.error("Failed to parse eBay API response as JSON.")
         return [], "Received an unexpected response from the eBay API."
 
-    def _extract_compatibility_text(item):
-        """Flatten potential compatibility-related fields to a searchable text blob."""
-
-        text_parts = []
-
-        def _flatten(value):
-            if isinstance(value, dict):
-                for nested in value.values():
-                    _flatten(nested)
-            elif isinstance(value, list):
-                for nested in value:
-                    _flatten(nested)
-            elif value:
-                text_parts.append(str(value))
-
-        for key in ("compatibilitySummaries", "compatibilities", "compatibility"):
-            if key in item:
-                _flatten(item[key])
-
-        return " ".join(text_parts)
-
     items = []
     model_lower = sanitized_model.lower()
     year_lower = sanitized_year.lower()
@@ -206,20 +158,19 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
             logger.debug("Skipping eBay item missing title or URL: %s", item)
             continue
 
-        compatibility_blob = _extract_compatibility_text(item).lower()
         title_lower = title.lower()
         if model_lower:
-            if model_lower not in title_lower and model_lower not in compatibility_blob:
+            if model_lower not in title_lower:
                 logger.debug(
                     "Skipping eBay item without model match: %s",
-                    {"title": title, "compatibility": compatibility_blob},
+                    {"title": title},
                 )
                 continue
         if year_lower:
-            if year_lower not in title_lower and year_lower not in compatibility_blob:
+            if year_lower not in title_lower:
                 logger.debug(
                     "Skipping eBay item without year match: %s",
-                    {"title": title, "compatibility": compatibility_blob},
+                    {"title": title},
                 )
                 continue
         items.append({"title": title, "price": price, "link": url})
@@ -441,6 +392,7 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
 
