@@ -105,15 +105,28 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
     }
 
     compatibility_parts = []
+    make_token = model_tokens = None
     if sanitized_model:
         tokens = sanitized_model.split()
-        if len(tokens) > 1:
-            compatibility_parts.append(f"Make:{tokens[0]}")
-            compatibility_parts.append(f"Model:{' '.join(tokens[1:])}")
+        if len(tokens) >= 2:
+            make_token = tokens[0]
+            model_tokens = " ".join(tokens[1:])
         else:
-            compatibility_parts.append(f"Model:{sanitized_model}")
-    if sanitized_year:
-        compatibility_parts.append(f"Year:{sanitized_year}")
+            logger.debug(
+                "Skipping eBay compatibility filter: make is unknown for model '%s'",
+                sanitized_model,
+            )
+
+    if make_token and model_tokens:
+        compatibility_parts.append(f"Make:{make_token}")
+        compatibility_parts.append(f"Model:{model_tokens}")
+        if sanitized_year:
+            compatibility_parts.append(f"Year:{sanitized_year}")
+    elif sanitized_year and not compatibility_parts:
+        logger.debug(
+            "Skipping eBay compatibility filter: need make and model before adding year '%s'",
+            sanitized_year,
+        )
 
     if compatibility_parts:
         params["compatibility_filter"] = "|".join(compatibility_parts)
@@ -213,7 +226,6 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
 
     if not items:
         logger.info("eBay API returned no item summaries for query '%s'.", query)
-
 
     return items, None
 
@@ -429,6 +441,7 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
 
