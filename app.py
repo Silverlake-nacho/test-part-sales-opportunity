@@ -66,14 +66,23 @@ def get_matching_google_sheet_rows(engine_code):
         print("Error accessing Google Sheets:", e)
         return []
 
-EBAY_API_ENDPOINT = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+EBAY_API_ENDPOINT = "https://api.ebay.com/buy/marketplace_insights/v1_beta/item_sales/search"
 EBAY_MARKETPLACE_ID = os.getenv("EBAY_MARKETPLACE_ID", "EBAY_GB")
 EBAY_CLIENT_ID = os.getenv("EBAY_CLIENT_ID")
 EBAY_CLIENT_SECRET = os.getenv("EBAY_CLIENT_SECRET")
 EBAY_OAUTH_TOKEN = os.getenv("EBAY_OAUTH_TOKEN")
+EBAY_REQUIRED_SCOPE = "https://api.ebay.com/oauth/api_scope/buy.marketplace.insights"
 
 if not EBAY_CLIENT_ID or not EBAY_CLIENT_SECRET:
     logger.warning("eBay client ID/secret are not fully configured. Token refresh will not be available.")
+
+
+def _log_missing_scope():
+    logger.error(
+        "EBAY_OAUTH_TOKEN is not configured. Unable to query eBay API. Ensure the token"
+        " includes the '%s' scope.",
+        EBAY_REQUIRED_SCOPE,
+    )
 
 
 def _sanitize_vehicle_term(value):
@@ -89,7 +98,7 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
     """Query the eBay Browse API and return parsed item summaries."""
 
     if not EBAY_OAUTH_TOKEN:
-        logger.error("EBAY_OAUTH_TOKEN is not configured. Unable to query eBay API.")
+        _log_missing_scope()
         return [], "eBay API credentials are not configured."
 
     sanitized_model = _sanitize_vehicle_term(model)
@@ -103,6 +112,7 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
         "q": query,
         "limit": str(limit),
         "category_ids": "131090",
+        "filter": "soldItemsOnly:true",
         "sort": "price",
     }
 
@@ -115,10 +125,9 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
         price_filters.append(f"price:[..{max_price}]")
 
     price_filters.append("conditionIds:{3000}")
-    price_filters.append("soldItemsOnly:true")
 
     if price_filters:
-        params["filter"] = ",".join(price_filters)
+        params["filter"] = ",".join([params["filter"]] + price_filters)
 
     headers = {
         "Authorization": f"Bearer {EBAY_OAUTH_TOKEN}",
@@ -150,35 +159,55 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
     items = []
     model_lower = sanitized_model.lower()
     year_lower = sanitized_year.lower()
-    for item in payload.get("itemSummaries", []):
-        title = item.get("title")
-        url = item.get("itemWebUrl")
-        price_info = item.get("price") or {}
-        try:
-            price = float(price_info.get("value"))
-        except (TypeError, ValueError):
-            logger.debug("Skipping eBay item without a valid price: %s", item)
-            continue
-        if not title or not url:
-            logger.debug("Skipping eBay item missing title or URL: %s", item)
+    for sale in payload.get("itemSales", []):
+        title = sale.get("title")
+        if not title:
+            logger.debug("Skipping eBay sale without title: %s", sale)
             continue
 
         title_lower = title.lower()
-        if model_lower:
-            if model_lower not in title_lower:
+        if model_lower and model_lower not in title_lower:
+            logger.debug("Skipping eBay sale without model match: %s", {"title": title})
+            continue
+        if year_lower and year_lower not in title_lower:
+            logger.debug("Skipping eBay sale without year match: %s", {"title": title})
+            continue
+
+        sale_level_price = sale.get("price") or {}
+        sale_level_url = sale.get("itemWebUrl")
+        sold_items = sale.get("soldItems") or []
+        if not sold_items:
+            price_info = sale_level_price
+            url = sale_level_url
+            try:
+                price = float(price_info.get("value"))
+            except (TypeError, ValueError):
+                logger.debug("Skipping eBay sale without price information: %s", sale)
+                continue
+            if not url:
+                logger.debug("Skipping eBay sale missing URL: %s", sale)
+                continue
+            items.append({"title": title, "price": price, "link": url})
+            continue
+
+        for sold_item in sold_items:
+            price_info = sold_item.get("price") or sale_level_price or {}
+            url = sold_item.get("itemWebUrl") or sale_level_url
+            try:
+                price = float(price_info.get("value"))
+            except (TypeError, ValueError):
                 logger.debug(
-                    "Skipping eBay item without model match: %s",
-                    {"title": title},
+                    "Skipping sold listing without price information: %s",
+                    sold_item,
                 )
                 continue
-        if year_lower:
-            if year_lower not in title_lower:
-                logger.debug(
-                    "Skipping eBay item without year match: %s",
-                    {"title": title},
-                )
+            if not url:
+                logger.debug("Skipping sold listing missing URL: %s", sold_item)
                 continue
-        items.append({"title": title, "price": price, "link": url})
+            items.append({"title": title, "price": price, "link": url})
+
+    if items:
+        items = items[:limit]
 
     if not items:
         logger.info("eBay API returned no item summaries for query '%s'.", query)
@@ -397,6 +426,7 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
 
