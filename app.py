@@ -3,6 +3,7 @@ import os
 import pandas as pd
 from io import BytesIO
 from datetime import datetime, timedelta
+import re
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
@@ -75,6 +76,15 @@ if not EBAY_CLIENT_ID or not EBAY_CLIENT_SECRET:
     logger.warning("eBay client ID/secret are not fully configured. Token refresh will not be available.")
 
 
+def _sanitize_vehicle_term(value):
+    """Return a cleaned vehicle search term containing only alphanumerics and spaces."""
+
+    if not value:
+        return ""
+    cleaned = re.sub(r"[^0-9A-Za-z ]", " ", str(value))
+    return " ".join(cleaned.split())
+
+
 def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
     """Query the eBay Browse API and return parsed item summaries."""
 
@@ -82,7 +92,9 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
         logger.error("EBAY_OAUTH_TOKEN is not configured. Unable to query eBay API.")
         return [], "eBay API credentials are not configured."
 
-    query = " ".join(part for part in (model, year) if part).strip()
+    sanitized_model = _sanitize_vehicle_term(model)
+    sanitized_year = "".join(ch for ch in str(year) if ch.isdigit())
+    query = " ".join(part for part in (sanitized_model, sanitized_year) if part).strip()
     if not query:
         logger.error("Attempted to query eBay API without a search keyword.")
         return [], "Missing search keyword for the eBay query."
@@ -91,6 +103,20 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
         "q": query,
         "limit": str(limit),
     }
+
+    compatibility_parts = []
+    if sanitized_model:
+        tokens = sanitized_model.split()
+        if len(tokens) > 1:
+            compatibility_parts.append(f"Make:{tokens[0]}")
+            compatibility_parts.append(f"Model:{' '.join(tokens[1:])}")
+        else:
+            compatibility_parts.append(f"Model:{sanitized_model}")
+    if sanitized_year:
+        compatibility_parts.append(f"Year:{sanitized_year}")
+
+    if compatibility_parts:
+        params["compatibility_filter"] = "|".join(compatibility_parts)
 
     price_filters = []
     if min_price is not None and max_price is not None:
@@ -130,7 +156,30 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
         logger.error("Failed to parse eBay API response as JSON.")
         return [], "Received an unexpected response from the eBay API."
 
+    def _extract_compatibility_text(item):
+        """Flatten potential compatibility-related fields to a searchable text blob."""
+
+        text_parts = []
+
+        def _flatten(value):
+            if isinstance(value, dict):
+                for nested in value.values():
+                    _flatten(nested)
+            elif isinstance(value, list):
+                for nested in value:
+                    _flatten(nested)
+            elif value:
+                text_parts.append(str(value))
+
+        for key in ("compatibilitySummaries", "compatibilities", "compatibility"):
+            if key in item:
+                _flatten(item[key])
+
+        return " ".join(text_parts)
+
     items = []
+    model_lower = sanitized_model.lower()
+    year_lower = sanitized_year.lower()
     for item in payload.get("itemSummaries", []):
         title = item.get("title")
         url = item.get("itemWebUrl")
@@ -143,10 +192,28 @@ def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
         if not title or not url:
             logger.debug("Skipping eBay item missing title or URL: %s", item)
             continue
+
+        compatibility_blob = _extract_compatibility_text(item).lower()
+        title_lower = title.lower()
+        if model_lower:
+            if model_lower not in title_lower and model_lower not in compatibility_blob:
+                logger.debug(
+                    "Skipping eBay item without model match: %s",
+                    {"title": title, "compatibility": compatibility_blob},
+                )
+                continue
+        if year_lower:
+            if year_lower not in title_lower and year_lower not in compatibility_blob:
+                logger.debug(
+                    "Skipping eBay item without year match: %s",
+                    {"title": title, "compatibility": compatibility_blob},
+                )
+                continue
         items.append({"title": title, "price": price, "link": url})
 
     if not items:
         logger.info("eBay API returned no item summaries for query '%s'.", query)
+
 
     return items, None
 
@@ -362,6 +429,7 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
 
