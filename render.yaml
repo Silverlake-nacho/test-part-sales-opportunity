@@ -8,3 +8,6 @@ services:
     envVars:
       - key: PORT
         value: 10000
+      - key: EBAY_OAUTH_SCOPES
+        value: https://api.ebay.com/oauth/api_scope/buy.marketplace.insights
+
