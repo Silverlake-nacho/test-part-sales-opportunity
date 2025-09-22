@@ -1,4 +1,5 @@
-from flask import Flask, request, render_template, send_file, redirect, url_for, session
+from flask import Flask, request, render_template, send_file, redirect, url_for, session, render_template_string
+import os
 import pandas as pd
 from io import BytesIO
 from datetime import datetime, timedelta
@@ -7,15 +8,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-import json
 import logging
-import re
-import time
 import requests
-from bs4 import BeautifulSoup
-from flask import request, render_template_string
-from collections import defaultdict
-from urllib.parse import urlencode, quote_plus, urljoin
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -71,394 +65,96 @@ def get_matching_google_sheet_rows(engine_code):
         print("Error accessing Google Sheets:", e)
         return []
 
+EBAY_API_ENDPOINT = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+EBAY_MARKETPLACE_ID = os.getenv("EBAY_MARKETPLACE_ID", "EBAY_GB")
+EBAY_CLIENT_ID = os.getenv("EBAY_CLIENT_ID")
+EBAY_CLIENT_SECRET = os.getenv("EBAY_CLIENT_SECRET")
+EBAY_OAUTH_TOKEN = os.getenv("EBAY_OAUTH_TOKEN")
 
-EBAY_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept-Language": "en-GB,en;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Connection": "keep-alive",
-    "Referer": "https://www.ebay.co.uk/",
-}
+if not EBAY_CLIENT_ID or not EBAY_CLIENT_SECRET:
+    logger.warning("eBay client ID/secret are not fully configured. Token refresh will not be available.")
 
 
-def build_ebay_search_url(model, year, min_price=None, max_price=None):
-    query = f"{model} {year}".strip()
+def query_ebay_api(model, year, min_price=None, max_price=None, limit=50):
+    """Query the eBay Browse API and return parsed item summaries."""
+
+    if not EBAY_OAUTH_TOKEN:
+        logger.error("EBAY_OAUTH_TOKEN is not configured. Unable to query eBay API.")
+        return [], "eBay API credentials are not configured."
+
+    query = " ".join(part for part in (model, year) if part).strip()
+    if not query:
+        logger.error("Attempted to query eBay API without a search keyword.")
+        return [], "Missing search keyword for the eBay query."
+
     params = {
-        "_nkw": query,
-        "LH_ItemCondition": "4",
-        "rt": "nc",
-        "_sop": "12",
-        "LH_Complete": "1",
-        "LH_Sold": "1",
+        "q": query,
+        "limit": str(limit),
     }
-    if min_price is not None:
-        params["_udlo"] = str(min_price)
-    if max_price is not None:
-        params["_udhi"] = str(max_price)
-    return "https://www.ebay.co.uk/sch/131090/i.html?" + urlencode(params, quote_via=quote_plus)
 
+    price_filters = []
+    if min_price is not None and max_price is not None:
+        price_filters.append(f"price:[{min_price}..{max_price}]")
+    elif min_price is not None:
+        price_filters.append(f"price:[{min_price}..]")
+    elif max_price is not None:
+        price_filters.append(f"price:[..{max_price}]")
 
-def parse_price_value(value):
-    if value is None:
-        return None
+    if price_filters:
+        params["filter"] = ",".join(price_filters)
 
-    price_str = str(value).replace("\xa0", " ").strip()
-    if not price_str:
-        return None
+    headers = {
+        "Authorization": f"Bearer {EBAY_OAUTH_TOKEN}",
+        "Content-Type": "application/json",
+        "X-EBAY-C-MARKETPLACE-ID": EBAY_MARKETPLACE_ID,
+    }
 
-    exclusion_words_before = {"bid", "bids", "postage"}
-    exclusion_words_after = {"bid", "bids"}
+    try:
+        response = requests.get(EBAY_API_ENDPOINT, params=params, headers=headers, timeout=15)
+        logger.info("Queried eBay API with params %s; status code %s", params, response.status_code)
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        status_code = exc.response.status_code if exc.response is not None else "unknown"
+        if status_code == 401:
+            logger.error("eBay API authentication failed (401). Token may be expired.")
+            return [], "eBay authentication failed. Please refresh the OAuth token."
+        logger.error("eBay API request failed with status %s: %s", status_code, exc)
+        return [], "eBay API request failed. Please try again later."
+    except requests.RequestException as exc:
+        logger.error("Network error while querying eBay API: %s", exc)
+        return [], "Unable to reach the eBay API. Please try again later."
 
-    def _normalize_word(word):
-        if not word:
-            return None
-        return re.sub(r"[^a-z]+", "", word.lower()) or None
+    try:
+        payload = response.json()
+    except ValueError:
+        logger.error("Failed to parse eBay API response as JSON.")
+        return [], "Received an unexpected response from the eBay API."
 
-    def _adjacent_word(text, index, direction):
-        if direction == "before":
-            match = re.search(r"(\w+)\W*$", text[:index])
-        else:
-            match = re.search(r"^\W*(\w+)", text[index:])
-        return _normalize_word(match.group(1)) if match else None
-
-    def _to_float(segment):
-        segment = segment.strip()
-        if not segment:
-            return None
-        segment = segment.replace(" ", "")
-
-        has_comma = "," in segment
-        has_dot = "." in segment
-
-        if has_comma and has_dot:
-            if segment.rfind(",") > segment.rfind("."):
-                segment = segment.replace(".", "")
-                segment = segment.replace(",", ".")
-            else:
-                segment = segment.replace(",", "")
-        elif has_comma:
-            if segment.count(",") > 1:
-                segment = segment.replace(",", "")
-            else:
-                integer_part, decimal_part = segment.split(",")
-                if len(decimal_part) in (1, 2):
-                    segment = integer_part + "." + decimal_part
-                else:
-                    segment = integer_part + decimal_part
-        elif has_dot and segment.count(".") > 1:
-            last_dot = segment.rfind(".")
-            segment = segment[:last_dot].replace(".", "") + "." + segment[last_dot + 1 :]
-
-        try:
-            return float(segment)
-        except ValueError:
-            return None
-
-    pattern = re.compile(r"(?P<currency>[£$€])?\s*(?P<number>\d[\d.,]*\d|\d)")
-    candidates = []
-
-    for match in pattern.finditer(price_str):
-        raw_number = match.group("number")
-        number = _to_float(raw_number)
-        if number is None:
-            continue
-
-        start, end = match.span()
-        prev_word = _adjacent_word(price_str, start, "before")
-        next_word = _adjacent_word(price_str, end, "after")
-
-        if prev_word in exclusion_words_before:
-            continue
-        if next_word in exclusion_words_after and not match.group("currency"):
-            continue
-
-        has_currency = bool(match.group("currency"))
-        candidates.append({
-            "value": number,
-            "currency": has_currency,
-        })
-
-    if not candidates:
-        return None
-
-    currency_candidates = [c for c in candidates if c["currency"]]
-    if currency_candidates:
-        return max(currency_candidates, key=lambda c: c["value"])['value']
-
-    return max(candidates, key=lambda c: c["value"])['value']
-
-
-PRICE_PARSING_REGRESSIONS = [
-    ("£125.00 12 bids + £6 postage", 125.00),
-    ("£45.00 postage £4.50", 45.00),
-]
-
-
-def run_price_parsing_regressions(snippets=None):
-    """Return regression results for parse_price_value handling."""
-
-    results = []
-    snippets = snippets or PRICE_PARSING_REGRESSIONS
-    for raw, expected in snippets:
-        parsed = parse_price_value(raw)
-        ok = parsed is not None and abs(parsed - expected) < 0.01
-        results.append({
-            "input": raw,
-            "expected": expected,
-            "parsed": parsed,
-            "ok": ok,
-        })
-    return results
-    
-
-def get_price_from_offer(offer):
-    if not isinstance(offer, dict):
-        return None
-    for key in ("price", "lowPrice", "highPrice"):
-        price = parse_price_value(offer.get(key))
-        if price is not None:
-            return price
-    price_spec = offer.get("priceSpecification")
-    if isinstance(price_spec, dict):
-        for key in ("price", "minPrice", "maxPrice"):
-            price = parse_price_value(price_spec.get(key))
-            if price is not None:
-                return price
-    return None
-
-
-def extract_items_from_jsonld(soup):
-    parts = []
-    seen = set()
-
-    def process_entry(entry):
-        if not isinstance(entry, dict):
-            return
-        item = entry.get("item")
-        if not isinstance(item, dict):
-            return
-        title = item.get("name") or entry.get("name")
-        url = entry.get("url") or item.get("url")
-        if not title or not url:
-            return
-        offers = item.get("offers")
-        price = None
-        if isinstance(offers, list):
-            for offer in offers:
-                price = get_price_from_offer(offer)
-                if price is not None:
-                    break
-        elif isinstance(offers, dict):
-            price = get_price_from_offer(offers)
-        if price is None:
-            return
-        if not url.startswith("http"):
-            url = urljoin("https://www.ebay.co.uk", url)
-        key = (title, url)
-        if key in seen:
-            return
-        seen.add(key)
-        parts.append({"title": title, "price": price, "link": url})
-
-    def walk(node):
-        if isinstance(node, dict):
-            node_type = node.get("@type")
-            if node_type == "ItemList" and isinstance(node.get("itemListElement"), list):
-                for entry in node["itemListElement"]:
-                    process_entry(entry)
-            for value in node.values():
-                if isinstance(value, (dict, list)):
-                    walk(value)
-        elif isinstance(node, list):
-            for item in node:
-                if isinstance(item, (dict, list)):
-                    walk(item)
-
-    for script in soup.find_all("script", type="application/ld+json"):
-        text = script.string or "".join(script.strings)
-        if not text:
-            continue
-        text = text.strip()
-        if not text:
-            continue
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            continue
-        walk(data)
-
-    return parts
-
-
-def extract_items_from_html(soup):
-    parts = []
-    seen = set()
-
-    def _normalize_container(node):
-        if node is None:
-            return None
-        if node.name == "li":
-            return node
-        parent = node.find_parent("li")
-        if parent is not None:
-            return parent
-        return node
-
-    item_selectors = [
-        "li.s-item",
-        "li[data-testid='result']",
-        "div.s-item__wrapper",
-        "div.s-item__info",
-    ]
-
-    processed_nodes = set()
     items = []
-    for selector in item_selectors:
-        for element in soup.select(selector):
-            candidate = _normalize_container(element)
-            if candidate is None:
-                continue
-            candidate_id = id(candidate)
-            if candidate_id in processed_nodes:
-                continue
-            processed_nodes.add(candidate_id)
-            items.append(candidate)
-
-    title_selectors = (
-        ".s-item__title",
-        "[data-testid='item-title']",
-        "[data-testid='ITEM_TITLE']",
-        "h3",
-        "span[role='heading']",
-    )
-    link_selectors = (
-        ".s-item__link",
-        "a[data-testid='item-title']",
-        "a[data-testid='item-link']",
-        "a.s-item__info-link",
-    )
-    price_selectors = (
-        ".s-item__price",
-        "[data-testid='ITEM_PRICE']",
-        "span[data-testid='item-price']",
-        "[data-testid='item-price']",
-    )
-
-    for item in items:
-        title_tag = None
-        for selector in title_selectors:
-            title_tag = item.select_one(selector)
-            if title_tag and title_tag.get_text(strip=True):
-                break
-
-        link_tag = None
-        for selector in link_selectors:
-            link_tag = item.select_one(selector)
-            if link_tag and link_tag.get("href"):
-                break
-        if link_tag is None:
-            link_tag = item.find("a", href=True)
-
-        price_tag = None
-        for selector in price_selectors:
-            price_tag = item.select_one(selector)
-            if price_tag and price_tag.get_text(strip=True):
-                break
-
-        if not link_tag or not link_tag.get("href"):
-            continue
-
-        url = link_tag.get("href")
-        if not url.startswith("http"):
-            url = urljoin("https://www.ebay.co.uk", url)
-
-        title = title_tag.get_text(strip=True) if title_tag else None
-        price_text = price_tag.get_text(" ", strip=True) if price_tag else None
-        price = parse_price_value(price_text)
-
-        if not title or price is None:
-            continue
-
-        key = (title, url)
-        if key in seen:
-            continue
-        seen.add(key)
-        parts.append({"title": title, "price": price, "link": url})
-
-    return parts
-
-
-def fetch_ebay_html(url):
-    max_attempts = 3
-    for attempt in range(1, max_attempts + 1):
-        response = None
+    for item in payload.get("itemSummaries", []):
+        title = item.get("title")
+        url = item.get("itemWebUrl")
+        price_info = item.get("price") or {}
         try:
-            response = requests.get(url, headers=EBAY_HEADERS, timeout=15)
-            logger.info(
-                "Fetched eBay URL %s (attempt %d/%d) with status %s",
-                url,
-                attempt,
-                max_attempts,
-                response.status_code,
-            )
-            response.raise_for_status()
-            return response.text
-        except Exception as e:
-            status_code = response.status_code if response is not None else "no response"
-            logger.warning(
-                "eBay fetch attempt %d/%d for %s failed with status %s: %s",
-                attempt,
-                max_attempts,
-                url,
-                status_code,
-                e,
-            )
-            time.sleep(2)
-    logger.error("Failed to fetch eBay URL %s after %d attempts", url, max_attempts)
-    return None
+            price = float(price_info.get("value"))
+        except (TypeError, ValueError):
+            logger.debug("Skipping eBay item without a valid price: %s", item)
+            continue
+        if not title or not url:
+            logger.debug("Skipping eBay item missing title or URL: %s", item)
+            continue
+        items.append({"title": title, "price": price, "link": url})
 
+    if not items:
+        logger.info("eBay API returned no item summaries for query '%s'.", query)
 
-def _looks_like_consent_or_captcha(html_snippet):
-    lowered = html_snippet.lower()
-    keywords = [
-        "captcha",
-        "consent",
-        "robot",
-        "verify you're human",
-        "verify you are human",
-        "are you a robot",
-        "security measure",
-        "botblock",
-        "hcaptcha",
-        "recaptcha",
-        "enter the characters",
-    ]
-    return any(keyword in lowered for keyword in keywords)
-
-
-def parse_ebay_response(html, url=None):
-    soup = BeautifulSoup(html, "html.parser")
-    parts = extract_items_from_jsonld(soup)
-    if not parts:
-        parts = extract_items_from_html(soup)
-    if not parts:
-        snippet = re.sub(r"\s+", " ", html)[:500]
-        consent_captcha = _looks_like_consent_or_captcha(snippet)
-        logger.warning(
-            "No parts parsed from eBay response for %s. Consent/CAPTCHA suspected: %s. Snippet: %s",
-            url or "unknown URL",
-            "yes" if consent_captcha else "no",
-            snippet,
-        )
-    return parts
+    return items, None
 
 
 def render_parts_table(parts):
     html = (
         "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link"\
+
         "</th></tr></thead><tbody>"
     )
     for part in parts:
@@ -604,20 +300,16 @@ def ebay_small_parts():
     if not model or not year:
         return "Model and year are required.", 400
 
-    search_url = build_ebay_search_url(model, year, max_price=50)
-    print("\U0001F50D eBay search URL:", search_url)
+    parts, error = query_ebay_api(model, year, max_price=50)
+    if error:
+        return render_template_string(f"<p><strong>{error}</strong></p>")
 
-    html = fetch_ebay_html(search_url)
-    if html is None:
-        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
-
-    parts = parse_ebay_response(html, url=search_url)
-    print(f"Parsed {len(parts)} candidate items in eBay search Small.")
+    logger.info("Parsed %d candidate items in eBay search Small.", len(parts))
 
     part_list = [part for part in parts if part["price"] <= 50]
 
     if not part_list:
-        return "<p>No results found under £50.</p>"
+        return render_template_string("<p>No eBay results found under £50 for the selected vehicle.</p>")
 
     part_list.sort(key=lambda x: x["price"], reverse=True)
 
@@ -630,25 +322,21 @@ def ebay_medium_parts():
     if not model or not year:
         return "Model and year are required.", 400
 
-    search_url = build_ebay_search_url(model, year, min_price=50, max_price=500)
-    print("\U0001F50D eBay search URL:", search_url)
+    parts, error = query_ebay_api(model, year, min_price=50, max_price=500)
+    if error:
+        return render_template_string(f"<p><strong>{error}</strong></p>")
 
-    html = fetch_ebay_html(search_url)
-    if html is None:
-        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
-
-    parts = parse_ebay_response(html, url=search_url)
-    print(f"Parsed {len(parts)} candidate items in eBay search Medium.")
+    logger.info("Parsed %d candidate items in eBay search Medium.", len(parts))
 
     part_list = [part for part in parts if part["price"] > 50 and part["price"] <= 500]
 
     if not part_list:
-        return "<p>No results found between £50 and £500.</p>"
+        return render_template_string("<p>No eBay results found between £50 and £500 for the selected vehicle.</p>")
 
     part_list.sort(key=lambda x: x["price"], reverse=False)
 
     return render_parts_table(part_list)
-
+    
 @app.route('/ebay_large_parts')
 def ebay_large_parts():
     model = request.args.get('model', '').strip()
@@ -656,20 +344,16 @@ def ebay_large_parts():
     if not model or not year:
         return "Model and year are required.", 400
 
-    search_url = build_ebay_search_url(model, year, min_price=500, max_price=5000)
-    print("\U0001F50D eBay search URL:", search_url)
+    parts, error = query_ebay_api(model, year, min_price=500, max_price=5000)
+    if error:
+        return render_template_string(f"<p><strong>{error}</strong></p>")
 
-    html = fetch_ebay_html(search_url)
-    if html is None:
-        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
-
-    parts = parse_ebay_response(html, url=search_url)
-    print(f"Parsed {len(parts)} candidate items in eBay search Large.")
+    logger.info("Parsed %d candidate items in eBay search Large.", len(parts))
 
     part_list = [part for part in parts if part["price"] >= 500]
 
     if not part_list:
-        return "<p>No results found over £500.</p>"
+        return render_template_string("<p>No eBay results found over £500 for the selected vehicle.</p>")
 
     part_list.sort(key=lambda x: x["price"], reverse=True)
 
@@ -678,6 +362,7 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
 
